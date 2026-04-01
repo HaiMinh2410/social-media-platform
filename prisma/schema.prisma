@@ -1,0 +1,86 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Profile {
+  id               String            @id @db.Uuid
+  fullName         String?           @map("full_name")
+  avatarUrl        String?           @map("avatar_url")
+  updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at")
+  platformAccounts PlatformAccount[]
+
+  @@map("profiles")
+}
+
+model PlatformAccount {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profileId        String         @map("profile_id") @db.Uuid
+  profile          Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  platform         String         @db.VarChar(10)
+  platformUserId   String         @map("platform_user_id")
+  platformUserName String         @map("platform_user_name")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  metaTokens       MetaToken[]
+  conversations    Conversation[]
+
+  @@unique([platform, platformUserId])
+  @@map("platform_accounts")
+}
+
+model MetaToken {
+  id                     String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId              String          @map("account_id") @db.Uuid
+  platformAccount        PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  encryptedAccessToken   String          @map("encrypted_access_token")
+  encryptedRefreshToken String?         @map("encrypted_refresh_token")
+  expiresAt              DateTime        @map("expires_at")
+  updatedAt              DateTime        @default(now()) @updatedAt @map("updated_at")
+
+  @@map("meta_tokens")
+}
+
+model Conversation {
+  id                     String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId              String          @map("account_id") @db.Uuid
+  platformAccount        PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  platformConversationId String          @map("platform_conversation_id")
+  lastMessageAt          DateTime        @default(now()) @map("last_message_at")
+  messages               Message[]
+
+  @@unique([accountId, platformConversationId])
+  @@map("conversations")
+}
+
+model Message {
+  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId     String         @map("conversation_id") @db.Uuid
+  conversation       Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId           String         @map("sender_id")
+  content            String         @db.Text
+  platformMessageId  String         @unique @map("platform_message_id")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  aiReplyLogs        AIReplyLog[]
+
+  @@map("messages")
+}
+
+model AIReplyLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messageId   String   @map("message_id") @db.Uuid
+  message     Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  prompt      String   @db.Text
+  response    String   @db.Text
+  model       String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("ai_reply_logs")
+}
