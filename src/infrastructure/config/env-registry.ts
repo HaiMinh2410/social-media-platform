@@ -13,6 +13,7 @@ export function validateEnv(): EnvConfig {
     DIRECT_URL: process.env.DIRECT_URL,
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
+    UPSTASH_REDIS_URL: process.env.UPSTASH_REDIS_URL,
     GROQ_API_KEY: process.env.GROQ_API_KEY,
     META_APP_ID: process.env.META_APP_ID,
     META_APP_SECRET: process.env.META_APP_SECRET,

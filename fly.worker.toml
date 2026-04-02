@@ -1,0 +1,19 @@
+app = "social-media-management-worker"
+primary_region = "osl" # Adjust to match your user settings
+
+[build]
+  dockerfile = "Dockerfile"
+  target = "worker-runner"
+
+[env]
+  NODE_ENV = "production"
+
+[[services]]
+  # Minimal config as workers don't need incoming HTTP traffic
+  internal_port = 8080
+  protocol = "tcp"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

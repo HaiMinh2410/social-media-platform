@@ -8,9 +8,12 @@ export const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   DIRECT_URL: z.string().url(),
 
-  // Upstash Redis
+  // Upstash Redis (HTTP)
   UPSTASH_REDIS_REST_URL: z.string().url(),
   UPSTASH_REDIS_REST_TOKEN: z.string().min(1),
+
+  // Upstash Redis (TCP for BullMQ)
+  UPSTASH_REDIS_URL: z.string().url(),
 
   // Groq AI
   GROQ_API_KEY: z.string().min(1),
