@@ -1,5 +1,5 @@
 import { createClient as createSupabaseServer } from "@/lib/supabase/server";
-import { getRedisClient } from "@/lib/redis";
+import { redis } from "@/lib/redis";
 import type { HandshakeResult } from "@/domain/types/infra";
 
 /**
@@ -32,7 +32,6 @@ export async function testHandshake(): Promise<HandshakeResult> {
 
   try {
     // 2. Test Upstash Redis Connection
-    const redis = getRedisClient();
     const pong = await redis.ping();
     if (pong === "PONG") {
       result.redis = true;

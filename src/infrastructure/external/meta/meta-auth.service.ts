@@ -56,6 +56,27 @@ export class MetaAuthService {
     
     return url.toString();
   }
+
+  /**
+   * Refreshes a Meta access token.
+   */
+  async refreshAccessToken(accessToken: string): Promise<MetaExchangeResponse> {
+    const url = new URL(`${MetaAuthService.GRAPH_API_URL}/${MetaAuthService.GRAPH_API_VERSION}/oauth/access_token`);
+    url.searchParams.append('grant_type', 'fb_extend_token');
+    url.searchParams.append('client_id', env.META_APP_ID);
+    url.searchParams.append('client_secret', env.META_APP_SECRET);
+    url.searchParams.append('fb_exchange_token', accessToken);
+
+    const response = await fetch(url.toString());
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('❌ [META_AUTH_SERVICE] Refresh failed:', data);
+      throw new Error(`Meta token refresh failed: ${data.error?.message || 'Unknown error'}`);
+    }
+
+    return data as MetaExchangeResponse;
+  }
 }
 
 export const metaAuthService = new MetaAuthService();

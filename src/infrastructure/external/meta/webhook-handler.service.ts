@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { db } from '@/lib/db';
 import type { MetaWebhookPayload, MetaMessagingEvent } from '@/domain/meta/webhook.types';
 
 export class MetaWebhookHandlerService {
@@ -10,14 +10,12 @@ export class MetaWebhookHandlerService {
       return;
     }
 
-    const supabase = await createClient();
-
     for (const entry of payload.entry) {
       if (!entry.messaging) continue;
 
       for (const event of entry.messaging) {
         if (event.message) {
-          await this.handleMessage(event, supabase);
+          await this.handleMessage(event);
         }
       }
     }
@@ -26,53 +24,73 @@ export class MetaWebhookHandlerService {
   /**
    * Handles an individual messaging event.
    */
-  private async handleMessage(event: MetaMessagingEvent, supabase: any) {
+  private async handleMessage(event: MetaMessagingEvent) {
     const { sender, recipient, message, timestamp } = event;
     if (!message) return;
 
     // 1. Find the platform account (either sender or recipient)
-    const { data: account, error: accountError } = await (supabase.from('platform_accounts') as any)
-      .select('id, profile_id')
-      .eq('platform_user_id', recipient.id) // Recipient is our page/account
-      .single();
+    const account = await db.platformAccount.findUnique({
+      where: { 
+        platform_platformUserId: { 
+          platform: 'META', 
+          platformUserId: recipient.id 
+        } 
+      },
+      select: { id: true, profileId: true }
+    });
 
-    if (accountError || !account) {
+    if (!account) {
       console.warn('⚠️ [WEBHOOK_HANDLER] Received message for unknown platform account:', recipient.id);
       return;
     }
 
     // 2. Find or create conversation
-    const platformConversationId = sender.id; // Or a combined ID depending on Meta's logic
-    const { data: conversation, error: convError } = await (supabase.from('conversations') as any)
-      .upsert({
-        account_id: account.id,
-        platform_conversation_id: platformConversationId,
-        last_message_at: new Date(timestamp).toISOString(),
-      }, { onConflict: 'account_id,platform_conversation_id' })
-      .select()
-      .single();
-
-    if (convError || !conversation) {
-      console.error('❌ [WEBHOOK_HANDLER] Failed to upsert conversation:', convError);
-      return;
-    }
+    const platformConversationId = sender.id;
+    const conversation = await db.conversation.upsert({
+      where: {
+        accountId_platformConversationId: {
+          accountId: account.id,
+          platformConversationId: platformConversationId,
+        }
+      },
+      update: {
+        lastMessageAt: new Date(timestamp),
+      },
+      create: {
+        accountId: account.id,
+        platformConversationId: platformConversationId,
+        lastMessageAt: new Date(timestamp),
+      }
+    });
 
     // 3. Persist the message
-    const { error: msgError } = await (supabase.from('messages') as any)
-      .upsert({
-        conversation_id: conversation.id,
-        sender_id: sender.id,
+    const dbMsg = await db.message.upsert({
+      where: { platformMessageId: message.mid },
+      update: {},
+      create: {
+        conversationId: conversation.id,
+        senderId: sender.id,
         content: message.text,
-        platform_message_id: message.mid,
-        created_at: new Date(timestamp).toISOString(),
-      }, { onConflict: 'platform_message_id' });
+        platformMessageId: message.mid,
+        createdAt: new Date(timestamp),
+      }
+    });
 
-    if (msgError) {
-      console.error('❌ [WEBHOOK_HANDLER] Failed to persist message:', msgError);
-    } else {
-      console.log('✅ [WEBHOOK_HANDLER] Message persisted:', message.mid);
-    }
+    console.log('✅ [WEBHOOK_HANDLER] Message persisted:', message.mid);
+      
+    // Dynamic import to avoid circular dependency
+    const { pushJob } = require('@/infrastructure/queue/bullmq-producer');
+    const { QueueName, JobType } = require('@/domain/types/queue');
+
+    await pushJob(QueueName.AI_PROCESSING, JobType.MESSAGE_RECEIVED, {
+      messageId: dbMsg.id,
+      conversationId: conversation.id,
+      platform: 'META',
+      content: dbMsg.content,
+    });
   }
 }
+
+
 
 export const metaWebhookHandler = new MetaWebhookHandlerService();
