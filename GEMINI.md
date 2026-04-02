@@ -16,8 +16,8 @@ On every session start, automatically:
    - IF session_intent.mode exists → apply mode behavior (see SESSION MODES below)
    - IF session_intent.flow_mode = true → notify: "⚡ Flow mode is ON from last session"
 7. Confirm boot:
-   - If PASS:  "✅ Antigravity v2.5 loaded — [project] | Task: [task] | Mode: [mode] | Progress: [n]%"
-   - If WARN:  "⚠️ Antigravity v2.5 loaded with warnings — [recovery details]"
+   - If PASS:  "✅ Antigravity v2.6 loaded — [project] | Task: [task] | Mode: [mode] | Progress: [n]%"
+   - If WARN:  "⚠️ Antigravity v2.6 loaded with warnings — [recovery details]"
    - If BLOCK: "❌ Memory corrupt — action required before continuing."
 
 If any memory file is missing → notify user, do NOT crash.
@@ -63,18 +63,60 @@ Examples:
 
 ---
 
+### INTENT: HOTFIX
+Triggers: lỗi nhanh, đơn giản, không cần phân tích kiến trúc
+
+**Nhận diện theo keyword trong error message:**
+| Keyword | hotfix_type |
+|---|---|
+| `Cannot find module`, `Module not found`, `ERR_MODULE_NOT_FOUND`, `has no exported member` | import |
+| `SyntaxError`, `Unexpected token`, `Unexpected identifier`, `Unterminated` | syntax |
+| `is not a function`, `deprecated`, `does not provide an export` | library |
+| `is not assignable to type`, `Property does not exist on type` (1 file) | type |
+| `process.env` undefined, `NEXT_PUBLIC_` missing, `environment variable` | env |
+| `tsconfig`, `eslint parse error`, `next.config` misconfiguration | config |
+
+**Nhận diện theo cách user diễn đạt:**
+- "fix nhanh", "sửa nhanh", "quick fix", "hotfix"
+- "lỗi import", "lỗi syntax", "lỗi thư viện", "lỗi type"
+- "sửa cái lỗi này thôi"
+- paste error message thuần túy không có mô tả thêm
+
+**KHÔNG dùng hotfix nếu:**
+- Lỗi liên quan DB, auth, RLS, session
+- Lỗi xuất hiện ở nhiều file (> 3)
+- Root cause chưa rõ sau khi đọc error message
+- User mô tả lỗi logic nghiệp vụ
+
+→ Route to: `workflows/hotfix.workflow.md`
+→ Extract: error_message + file path nếu có trong stack trace
+→ classifier.md xác định hotfix_type chính xác
+
+---
+
 ### INTENT: DEBUG
-Triggers: any error, bug, or fix request
+Triggers: lỗi phức tạp, logic sai, cần phân tích sâu
+
+**Dùng DEBUG (không phải hotfix) khi:**
+- Lỗi logic nghiệp vụ (sai flow, sai điều kiện, sai kết quả)
+- Lỗi liên quan DB / auth / RLS / session
+- Lỗi xuất hiện ở nhiều file hoặc nhiều layer
+- Root cause chưa rõ, cần điều tra
+- User dùng từ: "tại sao", "không hiểu tại sao", "lạ lắm", "bug này kỳ"
+
 Examples:
 - "debug"
-- "bị lỗi này"
-- "fix this error: ..."
-- paste of stack trace or error message
-- "something is broken"
+- "bị lỗi này" + paste stack trace phức tạp
 - "tại sao X không chạy"
+- "something is broken"
+- "login flow bị lỗi weird"
 
 → Route to: `workflows/debug.workflow.md`
 → Extract: error_message or code snippet if provided
+
+**Khi không chắc hotfix hay debug:**
+→ classifier.md (`runtime/classifier.md`) quyết định dựa trên error text
+→ Không tự route — luôn delegate sang classifier
 
 ---
 
@@ -209,6 +251,30 @@ Examples:
 
 ---
 
+## ROUTING PRIORITY: DEBUG vs HOTFIX
+
+Khi user paste error hoặc nói về lỗi, engine phân loại theo thứ tự này:
+
+```
+1. Đọc error message / mô tả của user
+2. Có keyword hotfix? (xem bảng trong INTENT: HOTFIX)
+   VÀ không có dấu hiệu phức tạp (DB, auth, nhiều file)?
+   → HOTFIX → workflows/hotfix.workflow.md
+
+3. Không chắc?
+   → Delegate sang classifier.md để quyết định
+   → classifier.md trả về: { route: "hotfix" | "debug", ... }
+   → route theo kết quả
+
+4. Rõ ràng là lỗi phức tạp / logic?
+   → DEBUG → workflows/debug.workflow.md
+```
+
+**RULE: Không được tự route sang debug.workflow khi error message chứa hotfix keyword.**
+**RULE: Khi nghi ngờ → classifier.md, không tự đoán.**
+
+---
+
 ## MODIFIERS
 
 Modifiers adjust workflow behavior. They can be expressed naturally — no exact syntax required.
@@ -265,6 +331,12 @@ FAST CONTEXT (use for: EXECUTE FAST, STATUS):
 - memory_state.json
 - constraints.md only
 
+HOTFIX CONTEXT (use for: HOTFIX):
+- constraints.md only
+- affected file content nếu detect được từ stack trace
+- KHÔNG load memory_core, memory_state, decisions
+- Lý do: hotfix không thay đổi architecture hay task state
+
 REVIEW CONTEXT (use for: REVIEW, DEBUG):
 - constraints.md
 - architecture rules from memory_core
@@ -308,3 +380,4 @@ Adjustments:
 - builder.agent: prioritize minimal diffs over rewrites
 - architect.agent: focus on what must be preserved (no regressions)
 - planner.agent: break tasks into smaller atomic units
+

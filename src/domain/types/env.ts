@@ -16,10 +16,10 @@ export const envSchema = z.object({
   GROQ_API_KEY: z.string().min(1),
 
   // Meta Platforms (Phase 2)
-  META_APP_ID: z.string().optional(),
-  META_APP_SECRET: z.string().optional(),
-  META_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
-  META_TOKEN_ENCRYPTION_KEY: z.string().length(64).optional(), // 32 bytes hex
+  META_APP_ID: z.string().min(1),
+  META_APP_SECRET: z.string().min(1),
+  META_WEBHOOK_VERIFY_TOKEN: z.string().min(1),
+  META_TOKEN_ENCRYPTION_KEY: z.string().length(64), // 32 bytes hex
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

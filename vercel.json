@@ -1,0 +1,10 @@
+{
+  "github": {
+    "silent": true,
+    "enabled": true
+  },
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["syd1"]
+}
