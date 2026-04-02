@@ -181,6 +181,20 @@ Examples:
 
 ---
 
+### INTENT: STATUS-TODAY
+Triggers: muốn xem tóm tắt những gì đã làm hôm nay
+Examples:
+- "hôm nay làm được gì"
+- "status hôm nay"
+- "today"
+- "summary hôm nay"
+- "đã xong gì rồi"
+
+→ Read memory_state.daily_log — filter by today's date
+→ Output TODAY FORMAT (see STATUS FORMAT section)
+
+---
+
 ### INTENT: REVIEW
 Triggers: explicit review request on existing code
 Examples:
@@ -193,6 +207,23 @@ Examples:
 → Route to: `agents/reviewer.agent.md`
 → Inject: code + constraints + architecture rules
 → Extract: review scope from modifier if present
+
+---
+
+### INTENT: PREVIEW
+Triggers: muốn hiểu task sẽ làm gì trước khi chạy
+Examples:
+- "preview T005"
+- "T005 làm gì vậy"
+- "giải thích T005 trước khi chạy"
+- "explain T005"
+- "T005 sẽ đụng đến file nào"
+- "trước khi run T005, cho tôi biết..."
+
+→ Route to: `runtime/preview.md`
+→ Read-only — KHÔNG gọi builder, KHÔNG write file, KHÔNG tạo git stash
+→ architect.agent chạy ở chế độ analysis-only (không produce handoff block)
+→ Hiển thị: files dự kiến, layers, dependencies, complexity, câu hỏi cần quyết định
 
 ---
 
@@ -304,18 +335,55 @@ When STATUS intent is detected, output:
 
 ```
 📊 ANTIGRAVITY STATUS
-━━━━━━━━━━━━━━━━━━━━
-🏗️  Feature:     [current_feature]
-📌  Task:        [current_task]
-📈  Progress:    [progress]%
-⏭️  Next tasks:  [next_tasks]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏗️  Feature:   [current_feature]
+📌  Task:      [current_task] — [tên task ngắn gọn]
+📈  Progress:  [progress]% ([completed]/[total] tasks)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⏭️  Tiếp theo:
+    [T006] Tên task — ready ✅
+    [T007] Tên task — chờ T006 ⏸️
+    [T008] Tên task — chờ T006, T007 ⏸️
 
-⚠️  Issues:      [count] open
-🔧  Tech debt:   [count] items
-
-📅  Last decision: [most recent from decisions.log]
-━━━━━━━━━━━━━━━━━━━━
+⚠️  Issues:    [count] open
+🔧  Tech debt: [count] items
+📅  Quyết định gần nhất: [decision text ngắn — from decisions.log]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
+
+Quy tắc hiển thị next_tasks:
+- Task không có dependency chưa xong → hiển thị "ready ✅"
+- Task có dependency chưa xong → hiển thị "chờ [T00x] ⏸️"
+- Chỉ hiển thị tối đa 5 task tiếp theo
+- Nếu có task bị block: thêm dòng gợi ý "💡 Gõ `preview [task_id]` để xem chi tiết"
+
+---
+
+## TODAY FORMAT
+
+When STATUS-TODAY intent is detected, output:
+
+```
+📅 HÔM NAY — [YYYY-MM-DD]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Đã hoàn thành ([count]):
+   T004 — DB Schema migration
+   T005 — Supabase Auth setup
+
+⚡ Hotfix đã xử lý ([count]):
+   [import] Cannot find module '@/lib/supabase'  → fixed
+
+🔀 Escalate ([count]):
+   T006 — Builder conflict: tách thành T006a, T006b
+
+📌 Đang dở:
+   T007 — Inbox UI (chưa chạy)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 Ngày mai bắt đầu với: run T007
+```
+
+Nếu daily_log không có entry cho hôm nay:
+→ output: "Hôm nay chưa có task nào được chạy. Gõ 'status' để xem toàn bộ tiến độ."
 
 ---
 
