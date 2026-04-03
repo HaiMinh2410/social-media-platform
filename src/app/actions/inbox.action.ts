@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { getConversationsByUserId, getAISuggestionsByMessageId, generateNewSuggestions } from '@/application/inbox/inbox.service';
+import { getConversationsByUserId, getAISuggestionsByMessageId, generateNewSuggestions, markConversationAsRead } from '@/application/inbox/inbox.service';
 import type { ConversationPreview, SendMessageResult } from '@/domain/types/inbox';
 
 async function verifySession() {
@@ -103,6 +103,17 @@ export async function regenerateSuggestionsAction(messageId: string) {
     return await generateNewSuggestions(auth.data!.id, messageId);
   } catch (error: any) {
     console.error('regenerateSuggestionsAction error:', error);
+    return { data: null, error: 'Internal Server Error' };
+  }
+}
+export async function markAsReadAction(conversationId: string) {
+  try {
+    const auth = await verifySession();
+    if (auth.error) return { data: null, error: auth.error };
+
+    return await markConversationAsRead(auth.data!.id, conversationId);
+  } catch (error: any) {
+    console.error('markAsReadAction error:', error);
     return { data: null, error: 'Internal Server Error' };
   }
 }

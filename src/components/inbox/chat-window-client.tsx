@@ -5,6 +5,7 @@ import { MessageBubble } from './message-bubble';
 import { ReplyBox } from './reply-box';
 import { SuggestionPanel } from './suggestion-panel';
 import { useInboxRealtime } from '@/hooks/use-inbox-realtime';
+import { markAsReadAction } from '@/app/actions/inbox.action';
 import type { MessageDTO } from '@/domain/types/inbox';
 import { Sparkles, MoreVertical, Search, ArrowLeft } from 'lucide-react';
 
@@ -26,7 +27,12 @@ export function ChatWindowClient({ initialMessages, conversationId, customerName
     setMessages(initialMessages);
     setIsAiPanelOpen(false);
     setReplyValue('');
-  }, [initialMessages]);
+    
+    // Mark as read when entering a conversation
+    if (conversationId) {
+      markAsReadAction(conversationId);
+    }
+  }, [initialMessages, conversationId]);
 
   const handleApplyMessage = useCallback((newMessage: MessageDTO) => {
     setMessages((prev) => {
@@ -35,7 +41,13 @@ export function ChatWindowClient({ initialMessages, conversationId, customerName
       if (exists) return prev;
       return [...prev, newMessage];
     });
-  }, []);
+
+    // If message is for THIS conversation and NOT from us, mark as read
+    if (newMessage.conversationId === conversationId && !newMessage.isFromUs) {
+       markAsReadAction(conversationId);
+    }
+  }, [conversationId]);
+
 
   // Subscribe to Realtime events
   useInboxRealtime({

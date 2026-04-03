@@ -23,7 +23,9 @@ export type MessageDTO = {
   createdAt: Date;
   isFromUs: boolean;
   platformMessageId: string;
+  isRead: boolean;
 };
+
 
 export type SendMessagePayload = {
   conversationId: string;

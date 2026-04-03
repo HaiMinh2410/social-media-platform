@@ -67,6 +67,7 @@ model Message {
   senderId           String         @map("sender_id")
   content            String         @db.Text
   platformMessageId  String         @unique @map("platform_message_id")
+  isRead             Boolean        @default(false) @map("is_read")
   createdAt          DateTime       @default(now()) @map("created_at")
   aiReplyLogs        AIReplyLog[]
 

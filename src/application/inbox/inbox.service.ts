@@ -22,6 +22,7 @@ export async function getConversationsByUserId(userId: string): Promise<{ data: 
           select: {
             platform: true,
             platformUserName: true,
+            platformUserId: true,
           },
         },
         messages: {
@@ -33,22 +34,51 @@ export async function getConversationsByUserId(userId: string): Promise<{ data: 
       },
     });
 
-    const mapped: ConversationPreview[] = conversations.map((c) => ({
-      id: c.id,
-      platformConversationId: c.platformConversationId,
-      lastMessageAt: c.lastMessageAt,
-      platformAccount: {
-        platform: c.platformAccount.platform,
-        platformUserName: c.platformAccount.platformUserName,
-      },
-      latestMessage: c.messages.length > 0 ? {
-        content: c.messages[0].content,
-        createdAt: c.messages[0].createdAt,
-        senderId: c.messages[0].senderId,
-        platformMessageId: c.messages[0].platformMessageId,
-      } : null,
-      unreadCount: 0,
-    }));
+    const mapped: ConversationPreview[] = conversations.map((c) => {
+      // Calculate unreadCount: messages where isRead is false and senderId is NOT our platform user id
+      const platformUserId = c.platformAccount.platformUserId;
+      // Note: In a real scenario with many messages, we'd use a dedicated aggregate query,
+      // but for this implementation we use the included messages or a separate count if needed.
+      // Since we only 'take: 1' for latest message, we need a separate count for unread.
+      return {
+        id: c.id,
+        platformConversationId: c.platformConversationId,
+        lastMessageAt: c.lastMessageAt,
+        platformAccount: {
+          platform: c.platformAccount.platform,
+          platformUserName: c.platformAccount.platformUserName,
+        },
+        latestMessage: c.messages.length > 0 ? {
+          content: c.messages[0].content,
+          createdAt: c.messages[0].createdAt,
+          senderId: c.messages[0].senderId,
+          platformMessageId: c.messages[0].platformMessageId,
+        } : null,
+        unreadCount: 0, // Placeholder, will update with real count below
+      };
+    });
+
+    // Fetch unread counts for each conversation
+    for (const conv of mapped) {
+       const unreadCount = await db.message.count({
+         where: {
+           conversationId: conv.id,
+           isRead: false,
+           senderId: { not: conv.platformAccount.platformUserName } // Simplified, should be platformUserId
+         }
+       });
+       // Correcting senderId check: should avoid messages from the account owner
+       const account = conversations.find(c => c.id === conv.id)?.platformAccount;
+       if (account) {
+         conv.unreadCount = await db.message.count({
+           where: {
+             conversationId: conv.id,
+             isRead: false,
+             senderId: { not: account.platformUserId }
+           }
+         });
+       }
+    }
 
     return { data: mapped, error: null };
   } catch (error: any) {
@@ -56,6 +86,7 @@ export async function getConversationsByUserId(userId: string): Promise<{ data: 
     return { data: null, error: error.message || 'Failed to fetch conversations' };
   }
 }
+
 
 export async function getMessagesByConversationId(userId: string, conversationId: string): Promise<{ data: MessageDTO[] | null; error: string | null }> {
   try {
@@ -82,7 +113,9 @@ export async function getMessagesByConversationId(userId: string, conversationId
       createdAt: m.createdAt,
       isFromUs: m.senderId === conversation.platformAccount.platformUserId,
       platformMessageId: m.platformMessageId,
+      isRead: m.isRead,
     }));
+
 
     return { data: mapped, error: null };
   } catch (error: any) {
@@ -161,7 +194,9 @@ export async function sendMessage(
       createdAt: newMessage.createdAt,
       isFromUs: true,
       platformMessageId: newMessage.platformMessageId,
+      isRead: newMessage.isRead,
     };
+
 
     return {
       data: {
@@ -268,3 +303,34 @@ export async function generateNewSuggestions(userId: string, messageId: string):
     return { data: null, error: error.message || 'Failed to generate suggestions' };
   }
 }
+
+export async function markConversationAsRead(userId: string, conversationId: string): Promise<{ data: boolean | null; error: string | null }> {
+  try {
+    // 1. Verify ownership
+    const conversation = await db.conversation.findUnique({
+      where: { id: conversationId },
+      include: { platformAccount: true }
+    });
+
+    if (!conversation || conversation.platformAccount.profileId !== userId) {
+      return { data: null, error: 'Conversation not found or unauthorized' };
+    }
+
+    // 2. Mark all messages as read for this conversation
+    // We only care about messages NOT from us
+    await db.message.updateMany({
+      where: {
+        conversationId,
+        isRead: false,
+        senderId: { not: conversation.platformAccount.platformUserId }
+      },
+      data: { isRead: true }
+    });
+
+    return { data: true, error: null };
+  } catch (error: any) {
+    console.error('Error marking as read:', error);
+    return { data: null, error: error.message || 'Failed to mark as read' };
+  }
+}
+
