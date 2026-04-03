@@ -44,7 +44,7 @@ export class AnalyticsService {
       const now = new Date();
       const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
-      const snapshot = await db.analyticsSnapshot.upsert({
+      const snapshot = await db.analyticsSnapshots.upsert({
         where: {
           accountId_date: {
             accountId,
