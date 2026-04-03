@@ -1,0 +1,2 @@
+﻿src/components/inbox/conversation-item.tsx(4,25): error TS2305: Module '"lucide-react"' has no exported member 'Instagram'.
+src/components/inbox/conversation-item.tsx(4,36): error TS2305: Module '"lucide-react"' has no exported member 'Facebook'.
