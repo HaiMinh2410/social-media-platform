@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { getConversationsByUserId } from '@/application/inbox/inbox.service';
-import type { ConversationPreview } from '@/domain/types/inbox';
+import type { ConversationPreview, SendMessageResult } from '@/domain/types/inbox';
 
 export async function getConversationsAction(): Promise<{ data: ConversationPreview[] | null; error: string | null }> {
   try {
@@ -34,6 +34,42 @@ export async function getMessagesAction(conversationId: string): Promise<{ data:
     return await getMessagesByConversationId(authData.user.id, conversationId);
   } catch (error: any) {
     console.error('getMessagesAction error:', error);
+    return { data: null, error: 'Internal Server Error' };
+  }
+}
+
+export async function sendMessageAction(
+  conversationId: string,
+  content: string
+): Promise<{ data: SendMessageResult | null; error: string | null }> {
+  try {
+    // Input validation
+    if (!conversationId || typeof conversationId !== 'string') {
+      return { data: null, error: 'Invalid conversation ID' };
+    }
+
+    const trimmedContent = content?.trim();
+    if (!trimmedContent || trimmedContent.length === 0) {
+      return { data: null, error: 'Message content is required' };
+    }
+
+    if (trimmedContent.length > 2000) {
+      return { data: null, error: 'Message exceeds maximum length of 2000 characters' };
+    }
+
+    // Auth guard
+    const supabase = createClient();
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !authData.user) {
+      return { data: null, error: 'Unauthorized' };
+    }
+
+    const { sendMessage } = await import('@/application/inbox/inbox.service');
+    return await sendMessage(authData.user.id, conversationId, trimmedContent);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal Server Error';
+    console.error('sendMessageAction error:', message);
     return { data: null, error: 'Internal Server Error' };
   }
 }

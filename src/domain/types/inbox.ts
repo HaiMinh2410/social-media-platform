@@ -23,3 +23,13 @@ export type MessageDTO = {
   createdAt: Date;
   isFromUs: boolean;
 };
+
+export type SendMessagePayload = {
+  conversationId: string;
+  content: string;
+};
+
+export type SendMessageResult = {
+  message: MessageDTO;
+  platformMessageId: string;
+};

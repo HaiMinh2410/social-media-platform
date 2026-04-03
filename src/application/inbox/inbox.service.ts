@@ -1,5 +1,7 @@
 import { db } from '@/lib/db';
-import type { ConversationPreview, MessageDTO } from '@/domain/types/inbox';
+import type { ConversationPreview, MessageDTO, SendMessageResult } from '@/domain/types/inbox';
+import { decryptToken } from '@/infrastructure/security/token-encryption';
+import { sendMetaMessage } from '@/infrastructure/external/meta/meta-messaging.service';
 
 export async function getConversationsByUserId(userId: string): Promise<{ data: ConversationPreview[] | null; error: string | null }> {
   try {
@@ -82,5 +84,90 @@ export async function getMessagesByConversationId(userId: string, conversationId
   } catch (error: any) {
     console.error('Error fetching messages:', error);
     return { data: null, error: error.message || 'Failed to fetch messages' };
+  }
+}
+
+export async function sendMessage(
+  userId: string,
+  conversationId: string,
+  content: string
+): Promise<{ data: SendMessageResult | null; error: string | null }> {
+  try {
+    // 1. Validate conversation ownership & get platform account details
+    const conversation = await db.conversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        platformAccount: {
+          include: {
+            metaTokens: {
+              orderBy: { updatedAt: 'desc' },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+
+    if (!conversation || conversation.platformAccount.profileId !== userId) {
+      return { data: null, error: 'Conversation not found or unauthorized' };
+    }
+
+    const metaToken = conversation.platformAccount.metaTokens[0];
+    if (!metaToken) {
+      return { data: null, error: 'No Meta access token found for this account' };
+    }
+
+    // 2. Decrypt the stored access token
+    const accessToken = decryptToken(metaToken.encryptedAccessToken);
+
+    // 3. Send via Meta Graph API
+    const recipientId = conversation.platformConversationId;
+    const { data: metaResult, error: metaError } = await sendMetaMessage({
+      recipientId,
+      messageText: content,
+      accessToken,
+    });
+
+    if (metaError || !metaResult) {
+      return { data: null, error: metaError || 'Failed to send message via Meta' };
+    }
+
+    // 4. Persist the sent message to DB
+    const platformUserId = conversation.platformAccount.platformUserId;
+    const newMessage = await db.message.create({
+      data: {
+        conversationId,
+        senderId: platformUserId,
+        content,
+        platformMessageId: metaResult.messageId,
+      },
+    });
+
+    // 5. Update conversation last_message_at
+    await db.conversation.update({
+      where: { id: conversationId },
+      data: { lastMessageAt: new Date() },
+    });
+
+    const messageDTO: MessageDTO = {
+      id: newMessage.id,
+      conversationId: newMessage.conversationId,
+      senderId: newMessage.senderId,
+      content: newMessage.content,
+      createdAt: newMessage.createdAt,
+      isFromUs: true,
+    };
+
+    return {
+      data: {
+        message: messageDTO,
+        platformMessageId: metaResult.messageId,
+      },
+      error: null,
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to send message';
+    console.error('Error sending message:', message);
+    return { data: null, error: message };
   }
 }
