@@ -32,8 +32,23 @@ model PlatformAccount {
   metaTokens       MetaToken[]
   conversations    Conversation[]
 
+  botConfiguration BotConfiguration?
+
   @@unique([platform, platformUserId])
   @@map("platform_accounts")
+}
+
+model BotConfiguration {
+  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId           String          @unique @map("account_id") @db.Uuid
+  platformAccount     PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  isActive            Boolean         @default(false) @map("is_active")
+  triggerLabels       String[]        @map("trigger_labels")
+  confidenceThreshold Float           @default(0.75) @map("confidence_threshold")
+  autoSend            Boolean         @default(false) @map("auto_send")
+  updatedAt           DateTime        @default(now()) @updatedAt @map("updated_at")
+
+  @@map("bot_configurations")
 }
 
 model MetaToken {

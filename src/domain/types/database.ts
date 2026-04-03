@@ -49,3 +49,12 @@ export interface AIReplyLog {
   model: string;
   created_at: Date;
 }
+export interface BotConfiguration {
+  id: string;
+  account_id: string;
+  is_active: boolean;
+  trigger_labels: string[];
+  confidence_threshold: number;
+  auto_send: boolean;
+  updated_at: Date;
+}

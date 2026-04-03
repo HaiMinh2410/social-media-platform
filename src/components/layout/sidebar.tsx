@@ -10,7 +10,7 @@ const navigation: NavigationItem[] = [
   { name: 'Inbox', href: '/inbox', icon: MessageSquare },
   { name: 'Posts', href: '/posts', icon: Calendar },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-  { name: 'Bots', href: '/bots', icon: Bot },
+  { name: 'AI Config', href: '/settings/bot', icon: Bot },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
