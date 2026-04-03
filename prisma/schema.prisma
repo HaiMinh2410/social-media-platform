@@ -33,9 +33,25 @@ model PlatformAccount {
   conversations    Conversation[]
 
   botConfiguration BotConfiguration?
+  analyticsSnapshots AnalyticsSnapshot[]
 
   @@unique([platform, platformUserId])
   @@map("platform_accounts")
+}
+
+model AnalyticsSnapshot {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId       String          @map("account_id") @db.Uuid
+  platformAccount PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  date            DateTime        @db.Date
+  reach           Int             @default(0)
+  impressions     Int             @default(0)
+  engagement      Int             @default(0)
+  followers       Int             @default(0)
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  @@unique([accountId, date])
+  @@map("analytics_snapshots")
 }
 
 model BotConfiguration {
