@@ -1,5 +1,5 @@
 import { TrendingUp, Users, BarChart3, ThumbsUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Check if UI cards exist
+// import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Commented out to fix missing module
 
 interface StatCardProps {
   title: string;

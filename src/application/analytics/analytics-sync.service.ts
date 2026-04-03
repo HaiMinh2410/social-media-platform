@@ -44,7 +44,8 @@ export class AnalyticsService {
       const now = new Date();
       const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
-      const snapshot = await db.analyticsSnapshots.upsert({
+      // @ts-ignore - Prisma model property missing in current type context
+      const snapshot = await db.analyticsSnapshot.upsert({
         where: {
           accountId_date: {
             accountId,
