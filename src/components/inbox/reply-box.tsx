@@ -8,24 +8,41 @@ import { Send, Loader2, AlertCircle } from 'lucide-react';
 type ReplyBoxProps = {
   conversationId: string;
   onMessageSent: (message: MessageDTO) => void;
+  value: string;
+  onValueChange: (value: string) => void;
+  disabled?: boolean;
 };
 
 const MAX_LENGTH = 2000;
 
-export function ReplyBox({ conversationId, onMessageSent }: ReplyBoxProps) {
-  const [content, setContent] = useState('');
+export function ReplyBox({ 
+  conversationId, 
+  onMessageSent, 
+  value, 
+  onValueChange,
+  disabled = false
+}: ReplyBoxProps) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const trimmedLength = content.trim().length;
+  const trimmedLength = value.trim().length;
   const isOverLimit = trimmedLength > MAX_LENGTH;
-  const canSend = trimmedLength > 0 && !isOverLimit && !isPending;
+  const canSend = trimmedLength > 0 && !isOverLimit && !isPending && !disabled;
+
+  // Auto-resize textarea when value changes from outside
+  React.useEffect(() => {
+    if (textareaRef.current) {
+      const el = textareaRef.current;
+      el.style.height = 'auto';
+      el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+    }
+  }, [value]);
 
   const handleSend = useCallback(() => {
     if (!canSend) return;
 
-    const messageContent = content.trim();
+    const messageContent = value.trim();
     setError(null);
 
     startTransition(async () => {
@@ -37,15 +54,10 @@ export function ReplyBox({ conversationId, onMessageSent }: ReplyBoxProps) {
       }
 
       // Clear input and notify parent
-      setContent('');
+      onValueChange('');
       onMessageSent(data.message);
-
-      // Reset textarea height
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-      }
     });
-  }, [canSend, content, conversationId, onMessageSent, startTransition]);
+  }, [canSend, value, conversationId, onMessageSent, onValueChange, startTransition]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -57,15 +69,10 @@ export function ReplyBox({ conversationId, onMessageSent }: ReplyBoxProps) {
     [handleSend]
   );
 
-  const handleInput = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    onValueChange(e.target.value);
     setError(null);
-
-    // Auto-resize textarea
-    const el = e.target;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-  }, []);
+  }, [onValueChange]);
 
   return (
     <div className="border-t border-slate-200 bg-white shrink-0">
@@ -90,8 +97,8 @@ export function ReplyBox({ conversationId, onMessageSent }: ReplyBoxProps) {
           <textarea
             ref={textareaRef}
             id="reply-box-input"
-            value={content}
-            onChange={handleInput}
+            value={value}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder="Type a reply..."
             disabled={isPending}

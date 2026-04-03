@@ -33,3 +33,9 @@ export type SendMessageResult = {
   message: MessageDTO;
   platformMessageId: string;
 };
+
+export type AISuggestionDTO = {
+  id: string;
+  content: string;
+  createdAt: Date;
+};

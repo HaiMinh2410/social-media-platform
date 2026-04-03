@@ -2,6 +2,9 @@ import { db } from '@/lib/db';
 import type { ConversationPreview, MessageDTO, SendMessageResult } from '@/domain/types/inbox';
 import { decryptToken } from '@/infrastructure/security/token-encryption';
 import { sendMetaMessage } from '@/infrastructure/external/meta/meta-messaging.service';
+import { generateSocialMediaReply } from '../ai/ai.service';
+import type { AISuggestionDTO } from '@/domain/types/inbox';
+import type { AiMessage } from '@/domain/types/ai';
 
 export async function getConversationsByUserId(userId: string): Promise<{ data: ConversationPreview[] | null; error: string | null }> {
   try {
@@ -169,5 +172,97 @@ export async function sendMessage(
     const message = error instanceof Error ? error.message : 'Failed to send message';
     console.error('Error sending message:', message);
     return { data: null, error: message };
+  }
+}
+
+export async function getAISuggestionsByMessageId(messageId: string): Promise<{ data: AISuggestionDTO[] | null; error: string | null }> {
+  try {
+    const logs = await db.aIReplyLog.findMany({
+      where: { messageId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const mapped: AISuggestionDTO[] = logs.map(l => ({
+      id: l.id,
+      content: l.response,
+      createdAt: l.createdAt,
+    }));
+
+    return { data: mapped, error: null };
+  } catch (error: any) {
+    console.error('Error fetching AI suggestions:', error);
+    return { data: null, error: error.message || 'Failed to fetch suggestions' };
+  }
+}
+
+export async function generateNewSuggestions(userId: string, messageId: string): Promise<{ data: AISuggestionDTO[] | null; error: string | null }> {
+  try {
+    // 1. Get message and conversation context
+    const message = await db.message.findUnique({
+      where: { id: messageId },
+      include: {
+        conversation: {
+          include: {
+            platformAccount: true,
+            messages: {
+              where: { createdAt: { lt: (await db.message.findUnique({ where: { id: messageId } }))?.createdAt } },
+              orderBy: { createdAt: 'desc' },
+              take: 5,
+            }
+          }
+        }
+      }
+    });
+
+    if (!message || message.conversation.platformAccount.profileId !== userId) {
+      return { data: null, error: 'Message not found or unauthorized' };
+    }
+
+    // 2. Prepare context for AI
+    const history: AiMessage[] = message.conversation.messages
+      .reverse()
+      .map(m => ({
+        role: m.senderId === message.conversation.platformAccount.platformUserId ? 'assistant' : 'user',
+        content: m.content
+      }));
+
+    // Add current message as the final user message
+    history.push({ role: 'user', content: message.content });
+
+    // 3. Generate 3 suggestions (serially for simplicity, or with high temp for variety)
+    const suggestions: string[] = [];
+    for (let i = 0; i < 3; i++) {
+        const result = await generateSocialMediaReply({
+            platform: message.conversation.platformAccount.platform,
+            conversationContext: history,
+            temperature: 0.7 + (i * 0.1), // Varying temperature for diversity
+        });
+        if (result.reply) {
+            suggestions.push(result.reply);
+        }
+    }
+
+    // 4. Persist to ai_reply_logs
+    const createdLogs = await Promise.all(suggestions.map(content =>
+        db.aIReplyLog.create({
+            data: {
+                messageId,
+                prompt: JSON.stringify(history),
+                response: content,
+                model: 'groq-llama3-70b', // Hardcoded for now as per stack
+            }
+        })
+    ));
+
+    const mapped: AISuggestionDTO[] = createdLogs.map(l => ({
+      id: l.id,
+      content: l.response,
+      createdAt: l.createdAt,
+    }));
+
+    return { data: mapped, error: null };
+  } catch (error: any) {
+    console.error('Error generating AI suggestions:', error);
+    return { data: null, error: error.message || 'Failed to generate suggestions' };
   }
 }
