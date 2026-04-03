@@ -19,3 +19,21 @@ export async function getConversationsAction(): Promise<{ data: ConversationPrev
     return { data: null, error: 'Internal Server Error' };
   }
 }
+
+export async function getMessagesAction(conversationId: string): Promise<{ data: any[] | null; error: string | null }> {
+  try {
+    const supabase = createClient();
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !authData.user) {
+      return { data: null, error: 'Unauthorized' };
+    }
+
+    // Dynamic import to avoid type leaking issues or keep simple
+    const { getMessagesByConversationId } = await import('@/application/inbox/inbox.service');
+    return await getMessagesByConversationId(authData.user.id, conversationId);
+  } catch (error: any) {
+    console.error('getMessagesAction error:', error);
+    return { data: null, error: 'Internal Server Error' };
+  }
+}

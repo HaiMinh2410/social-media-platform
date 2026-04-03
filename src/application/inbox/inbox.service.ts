@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import type { ConversationPreview } from '@/domain/types/inbox';
+import type { ConversationPreview, MessageDTO } from '@/domain/types/inbox';
 
 export async function getConversationsByUserId(userId: string): Promise<{ data: ConversationPreview[] | null; error: string | null }> {
   try {
@@ -49,5 +49,38 @@ export async function getConversationsByUserId(userId: string): Promise<{ data: 
   } catch (error: any) {
     console.error('Error fetching conversations:', error);
     return { data: null, error: error.message || 'Failed to fetch conversations' };
+  }
+}
+
+export async function getMessagesByConversationId(userId: string, conversationId: string): Promise<{ data: MessageDTO[] | null; error: string | null }> {
+  try {
+    // Prevent unauthorized access by checking profileId
+    const conversation = await db.conversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        platformAccount: true,
+        messages: {
+          orderBy: { createdAt: 'asc' }, // Chronological order
+        }
+      }
+    });
+
+    if (!conversation || conversation.platformAccount.profileId !== userId) {
+      return { data: null, error: 'Conversation not found or unauthorized' };
+    }
+
+    const mapped: MessageDTO[] = conversation.messages.map(m => ({
+      id: m.id,
+      conversationId: m.conversationId,
+      senderId: m.senderId,
+      content: m.content,
+      createdAt: m.createdAt,
+      isFromUs: m.senderId === conversation.platformAccount.platformUserId,
+    }));
+
+    return { data: mapped, error: null };
+  } catch (error: any) {
+    console.error('Error fetching messages:', error);
+    return { data: null, error: error.message || 'Failed to fetch messages' };
   }
 }

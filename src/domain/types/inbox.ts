@@ -14,3 +14,12 @@ export type ConversationPreview = {
   } | null;
   unreadCount?: number; // Currently not modeled precisely in schema, but good for future
 };
+
+export type MessageDTO = {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  content: string;
+  createdAt: Date;
+  isFromUs: boolean;
+};
