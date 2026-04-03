@@ -56,6 +56,7 @@ export function useInboxRealtime({
             createdAt: new Date(raw.created_at),
             isFromUs: raw.sender_id === platformUserId,
             platformMessageId: raw.platform_message_id,
+            isRead: raw.is_read || false,
           };
 
           onNewMessage(dto);

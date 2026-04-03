@@ -60,14 +60,6 @@ export async function getConversationsByUserId(userId: string): Promise<{ data: 
 
     // Fetch unread counts for each conversation
     for (const conv of mapped) {
-       const unreadCount = await db.message.count({
-         where: {
-           conversationId: conv.id,
-           isRead: false,
-           senderId: { not: conv.platformAccount.platformUserName } // Simplified, should be platformUserId
-         }
-       });
-       // Correcting senderId check: should avoid messages from the account owner
        const account = conversations.find(c => c.id === conv.id)?.platformAccount;
        if (account) {
          conv.unreadCount = await db.message.count({
@@ -79,6 +71,7 @@ export async function getConversationsByUserId(userId: string): Promise<{ data: 
          });
        }
     }
+
 
     return { data: mapped, error: null };
   } catch (error: any) {
