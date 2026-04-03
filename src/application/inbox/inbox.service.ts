@@ -81,6 +81,7 @@ export async function getMessagesByConversationId(userId: string, conversationId
       content: m.content,
       createdAt: m.createdAt,
       isFromUs: m.senderId === conversation.platformAccount.platformUserId,
+      platformMessageId: m.platformMessageId,
     }));
 
     return { data: mapped, error: null };
@@ -159,6 +160,7 @@ export async function sendMessage(
       content: newMessage.content,
       createdAt: newMessage.createdAt,
       isFromUs: true,
+      platformMessageId: newMessage.platformMessageId,
     };
 
     return {

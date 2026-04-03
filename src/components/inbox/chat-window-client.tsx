@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MessageBubble } from './message-bubble';
 import { ReplyBox } from './reply-box';
 import { SuggestionPanel } from './suggestion-panel';
+import { useInboxRealtime } from '@/hooks/use-inbox-realtime';
 import type { MessageDTO } from '@/domain/types/inbox';
 import { Sparkles, MoreVertical, Search, ArrowLeft } from 'lucide-react';
 
@@ -17,7 +18,31 @@ export function ChatWindowClient({ initialMessages, conversationId, customerName
   const [messages, setMessages] = useState<MessageDTO[]>(initialMessages);
   const [replyValue, setReplyValue] = useState('');
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
+  const [aiRefreshKey, setAiRefreshKey] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Sync state when initialMessages change (new conversation selected)
+  useEffect(() => {
+    setMessages(initialMessages);
+    setIsAiPanelOpen(false);
+    setReplyValue('');
+  }, [initialMessages]);
+
+  const handleApplyMessage = useCallback((newMessage: MessageDTO) => {
+    setMessages((prev) => {
+      // Prevent duplicates from Realtime vs Optimistic vs Manual
+      const exists = prev.some(m => m.id === newMessage.id || m.platformMessageId === newMessage.platformMessageId);
+      if (exists) return prev;
+      return [...prev, newMessage];
+    });
+  }, []);
+
+  // Subscribe to Realtime events
+  useInboxRealtime({
+    conversationId,
+    onNewMessage: handleApplyMessage,
+    onSuggestionGenerated: () => setAiRefreshKey(prev => prev + 1),
+  });
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -25,13 +50,12 @@ export function ChatWindowClient({ initialMessages, conversationId, customerName
   }, [messages]);
 
   const handleMessageSent = (newMessage: MessageDTO) => {
-    setMessages((prev) => [...prev, newMessage]);
+    handleApplyMessage(newMessage);
     setIsAiPanelOpen(false); // Close AI panel after sending custom reply
   };
 
   const handleUseSuggestion = useCallback((content: string) => {
     setReplyValue(content);
-    // Panel remains open so they can see alternatives or just close it
   }, []);
 
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
@@ -41,7 +65,7 @@ export function ChatWindowClient({ initialMessages, conversationId, customerName
     <div className="flex flex-row h-full overflow-hidden bg-white">
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
-        {/* Header */}
+        {/* Header omitted for brevity */}
         <header className="h-16 border-b border-slate-200 px-4 md:px-6 flex items-center justify-between shrink-0 bg-white z-10 shadow-sm">
           <div className="flex items-center gap-3">
             <button className="md:hidden p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg">
@@ -114,6 +138,7 @@ export function ChatWindowClient({ initialMessages, conversationId, customerName
       {/* AI Suggestion Panel (Collapsible) */}
       {isAiPanelOpen && canShowAi && lastMessage && (
         <SuggestionPanel 
+          key={`ai-${lastMessage.id}-${aiRefreshKey}`}
           messageId={lastMessage.id}
           onUseSuggestion={handleUseSuggestion}
           onClose={() => setIsAiPanelOpen(false)}

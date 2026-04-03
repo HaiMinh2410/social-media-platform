@@ -22,6 +22,7 @@ export type MessageDTO = {
   content: string;
   createdAt: Date;
   isFromUs: boolean;
+  platformMessageId: string;
 };
 
 export type SendMessagePayload = {
