@@ -1,4 +1,4 @@
-import { Queue } from "bullmq";
+import { Queue, JobsOptions } from "bullmq";
 import { queueConnection } from "@/lib/redis";
 import { QueueName, JobType, type JobPayloadMap } from "@/domain/types/queue";
 
@@ -31,10 +31,11 @@ function getQueue<T extends QueueName>(name: T): Queue {
 export async function pushJob<T extends JobType>(
   queueName: QueueName,
   type: T,
-  payload: JobPayloadMap[T]
+  payload: JobPayloadMap[T],
+  options: JobsOptions = {}
 ) {
   const queue = getQueue(queueName);
-  const result = await queue.add(type, payload);
+  const result = await queue.add(type, payload, options);
   console.log(`✅ [QUEUE_PRODUCER] Job "${type}" added to queue "${queueName}" with ID ${result.id}`);
   return result;
 }

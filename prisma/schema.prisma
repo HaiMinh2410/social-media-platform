@@ -34,6 +34,7 @@ model PlatformAccount {
 
   botConfiguration BotConfiguration?
   analyticsSnapshots AnalyticsSnapshot[]
+  posts              Post[]
 
   @@unique([platform, platformUserId])
   @@map("platform_accounts")
@@ -115,4 +116,19 @@ model AIReplyLog {
   createdAt   DateTime @default(now()) @map("created_at")
 
   @@map("ai_reply_logs")
+}
+
+model Post {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId        String          @map("account_id") @db.Uuid
+  platformAccount  PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  content          String?         @db.Text
+  mediaUrls        String[]        @map("media_urls")
+  status           String          @default("draft") // draft, scheduled, published, error
+  scheduledAt      DateTime?       @map("scheduled_at")
+  platformPostId   String?         @map("platform_post_id")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @default(now()) @updatedAt @map("updated_at")
+
+  @@map("posts")
 }
