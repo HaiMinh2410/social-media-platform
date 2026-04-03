@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import type { ConversationPreview } from '@/domain/types/inbox';
 import { ConversationItem } from './conversation-item';
