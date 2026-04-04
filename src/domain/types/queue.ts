@@ -22,7 +22,7 @@ export interface MessagePayload {
 
 export interface JobPayloadMap {
   [JobType.MESSAGE_RECEIVED]: MessagePayload;
-  [JobType.GENERATE_REPLY]: { messageId: string; conversationId: string };
+  [JobType.GENERATE_REPLY]: { messageId: string; conversationId: string; metadata?: Record<string, any> };
   [JobType.REFRESH_META_TOKEN]: { accountId: string };
   [JobType.REFRESH_TIKTOK_TOKEN]: { accountId: string };
   [JobType.PUBLISH_POST]: { postId: string; accountId: string };

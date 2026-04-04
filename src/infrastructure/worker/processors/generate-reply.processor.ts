@@ -36,6 +36,7 @@ export async function processGenerateReply(job: Job<JobPayloadMap[JobType.GENERA
   const result = await generateSocialMediaReply({
     platform: conversation.platformAccount.platform,
     conversationContext: aiMessages,
+    isComment: job.data.metadata?.isComment === true,
   });
 
   // Save AI log to DB

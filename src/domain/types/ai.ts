@@ -6,6 +6,7 @@ export interface AiMessage {
 export interface GenerateReplyParams {
   platform: string;
   conversationContext: AiMessage[];
+  isComment?: boolean;
   maxTokens?: number;
   temperature?: number;
 }

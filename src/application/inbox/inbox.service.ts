@@ -2,6 +2,8 @@ import { db } from '@/lib/db';
 import type { ConversationPreview, MessageDTO, SendMessageResult } from '@/domain/types/inbox';
 import { decryptToken } from '@/infrastructure/security/token-encryption';
 import { sendMetaMessage } from '@/infrastructure/external/meta/meta-messaging.service';
+import { sendTikTokMessage } from '@/infrastructure/external/tiktok/tiktok-messaging.service';
+import { env } from '@/infrastructure/config/env-registry';
 import { generateSocialMediaReply } from '../ai/ai.service';
 import type { AISuggestionDTO } from '@/domain/types/inbox';
 import type { AiMessage } from '@/domain/types/ai';
@@ -133,6 +135,10 @@ export async function sendMessage(
               orderBy: { updatedAt: 'desc' },
               take: 1,
             },
+            tiktokTokens: {
+              orderBy: { updatedAt: 'desc' },
+              take: 1,
+            },
           },
         },
       },
@@ -142,34 +148,77 @@ export async function sendMessage(
       return { data: null, error: 'Conversation not found or unauthorized' };
     }
 
-    const metaToken = conversation.platformAccount.metaTokens[0];
-    if (!metaToken) {
-      return { data: null, error: 'No Meta access token found for this account' };
-    }
-
-    // 2. Decrypt the stored access token
-    const accessToken = decryptToken(metaToken.encryptedAccessToken);
-
-    // 3. Send via Meta Graph API
+    const platform = conversation.platformAccount.platform;
+    const platformUserId = conversation.platformAccount.platformUserId;
     const recipientId = conversation.platformConversationId;
-    const { data: metaResult, error: metaError } = await sendMetaMessage({
-      recipientId,
-      messageText: content,
-      accessToken,
-    });
+    let platformMessageId = '';
 
-    if (metaError || !metaResult) {
-      return { data: null, error: metaError || 'Failed to send message via Meta' };
+    if (platform === 'META') {
+      // --- META FLOW ---
+      const metaToken = conversation.platformAccount.metaTokens[0];
+      if (!metaToken) {
+        return { data: null, error: 'No Meta access token found for this account' };
+      }
+
+      const accessToken = decryptToken(metaToken.encryptedAccessToken, env.META_TOKEN_ENCRYPTION_KEY);
+      const { data: metaResult, error: metaError } = await sendMetaMessage({
+        recipientId,
+        messageText: content,
+        accessToken,
+      });
+
+      if (metaError || !metaResult) {
+        return { data: null, error: metaError || 'Failed to send message via Meta' };
+      }
+      platformMessageId = metaResult.messageId;
+    } else if (platform === 'TIKTOK') {
+      // --- TIKTOK FLOW ---
+      const tiktokToken = conversation.platformAccount.tiktokTokens[0];
+      if (!tiktokToken) {
+        return { data: null, error: 'No TikTok access token found for this account' };
+      }
+
+      // 48h Window Check
+      const lastUserMessage = await db.message.findFirst({
+        where: {
+          conversationId,
+          senderId: { not: platformUserId },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (lastUserMessage) {
+        const lastMessageTime = new Date(lastUserMessage.createdAt).getTime();
+        const DIFF_48H = 48 * 60 * 60 * 1000;
+        if (Date.now() - lastMessageTime > DIFF_48H) {
+          return { data: null, error: 'Messaging window expired (48h). User must contact you first.' };
+        }
+      }
+
+      const accessToken = decryptToken(tiktokToken.accessToken, env.TIKTOK_TOKEN_ENCRYPTION_KEY);
+      const { data: tiktokResult, error: tiktokError } = await sendTikTokMessage({
+        brandId: platformUserId,
+        receiverId: recipientId,
+        text: content,
+        accessToken,
+        advertiserId: '', // Added dummy for type compliance, if needed
+      });
+
+      if (tiktokError || !tiktokResult) {
+        return { data: null, error: tiktokError || 'Failed to send message via TikTok' };
+      }
+      platformMessageId = tiktokResult.messageId;
+    } else {
+      return { data: null, error: `Platform ${platform} not supported for sending messages.` };
     }
 
     // 4. Persist the sent message to DB
-    const platformUserId = conversation.platformAccount.platformUserId;
     const newMessage = await db.message.create({
       data: {
         conversationId,
         senderId: platformUserId,
         content,
-        platformMessageId: metaResult.messageId,
+        platformMessageId: platformMessageId,
       },
     });
 
@@ -190,11 +239,10 @@ export async function sendMessage(
       isRead: newMessage.isRead,
     };
 
-
     return {
       data: {
         message: messageDTO,
-        platformMessageId: metaResult.messageId,
+        platformMessageId,
       },
       error: null,
     };

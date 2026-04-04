@@ -5,14 +5,18 @@ import type { TikTokWebhookPayload } from '@/domain/tiktok/webhook.types';
  * TikTok Webhook Handler Service
  * 
  * Handles parsing, persistence and enqueuing of TikTok events.
+ * Supports both direct messages (DMs) and public comments.
  */
 export class TikTokWebhookHandlerService {
   async handlePayload(payload: TikTokWebhookPayload) {
-    // Only handle direct messages (chat) for now
-    if (payload.event !== 'message') {
-      return;
+    if (payload.event === 'message') {
+      await this.handleMessage(payload);
+    } else if (payload.event === 'comment') {
+      await this.handleComment(payload);
     }
+  }
 
+  private async handleMessage(payload: TikTokWebhookPayload) {
     const { 
       message_id, 
       conversation_id, 
@@ -22,13 +26,11 @@ export class TikTokWebhookHandlerService {
       create_time 
     } = payload.data;
 
-    // Guard: basic validation of payload
     if (!message_id || !sender_id || !receiver_id) {
-      console.warn('⚠️ [TIKTOK_WEBHOOK] Received invalid message payload:', payload.data);
+      console.warn('⚠️ [TIKTOK_WEBHOOK] Invalid message payload:', payload.data);
       return;
     }
 
-    // 1. Resolve Platform Account (The recipient is the brand/brand_id in TikTok API)
     const account = await db.platformAccount.findUnique({
       where: {
         platform_platformUserId: {
@@ -39,14 +41,8 @@ export class TikTokWebhookHandlerService {
       select: { id: true },
     });
 
-    if (!account) {
-      console.warn('⚠️ [TIKTOK_WEBHOOK] Unknown platform account linked for receiver:', receiver_id);
-      return;
-    }
+    if (!account) return;
 
-    // 2. Upsert Conversation
-    // In TikTok, a messaging thread identifies a conversation. 
-    // We use conversation_id from payload, falling back to sender_id (peer-to-peer).
     const platformConversationId = conversation_id || sender_id;
     const timestamp = create_time ? new Date(create_time * 1000) : new Date();
 
@@ -57,9 +53,7 @@ export class TikTokWebhookHandlerService {
           platformConversationId: platformConversationId,
         },
       },
-      update: {
-        lastMessageAt: timestamp,
-      },
+      update: { lastMessageAt: timestamp },
       create: {
         accountId: account.id,
         platformConversationId: platformConversationId,
@@ -67,7 +61,6 @@ export class TikTokWebhookHandlerService {
       },
     });
 
-    // 3. Persist Message
     const dbMsg = await db.message.upsert({
       where: { platformMessageId: message_id },
       update: {},
@@ -80,17 +73,80 @@ export class TikTokWebhookHandlerService {
       },
     });
 
-    console.log('✅ [TIKTOK_WEBHOOK] Persisted TikTok message:', message_id);
+    await this.enqueueJob(dbMsg.id, conversation.id, 'TIKTOK', dbMsg.content, false);
+  }
 
-    // 4. Enqueue Job for AI Processing
+  private async handleComment(payload: TikTokWebhookPayload) {
+    const { 
+      comment_id, 
+      video_id, 
+      sender_id, 
+      receiver_id, 
+      content, 
+      create_time 
+    } = payload.data;
+
+    if (!comment_id || !video_id || !receiver_id) {
+      console.warn('⚠️ [TIKTOK_WEBHOOK] Invalid comment payload:', payload.data);
+      return;
+    }
+
+    const account = await db.platformAccount.findUnique({
+      where: {
+        platform_platformUserId: {
+          platform: 'TIKTOK',
+          platformUserId: receiver_id,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!account) return;
+
+    // For comments, we treat the video_id as the conversation thread
+    const platformConversationId = video_id;
+    const timestamp = create_time ? new Date(create_time * 1000) : new Date();
+
+    const conversation = await db.conversation.upsert({
+      where: {
+        accountId_platformConversationId: {
+          accountId: account.id,
+          platformConversationId,
+        },
+      },
+      update: { lastMessageAt: timestamp },
+      create: {
+        accountId: account.id,
+        platformConversationId,
+        lastMessageAt: timestamp,
+      },
+    });
+
+    const dbMsg = await db.message.upsert({
+      where: { platformMessageId: comment_id },
+      update: {},
+      create: {
+        conversationId: conversation.id,
+        senderId: sender_id || 'anonymous',
+        content: content || '',
+        platformMessageId: comment_id,
+        createdAt: timestamp,
+      },
+    });
+
+    await this.enqueueJob(dbMsg.id, conversation.id, 'TIKTOK', dbMsg.content, true);
+  }
+
+  private async enqueueJob(messageId: string, conversationId: string, platform: string, content: string, isComment: boolean) {
     const { pushJob } = require('@/infrastructure/queue/bullmq-producer');
     const { QueueName, JobType } = require('@/domain/types/queue');
 
     await pushJob(QueueName.AI_PROCESSING, JobType.MESSAGE_RECEIVED, {
-      messageId: dbMsg.id,
-      conversationId: conversation.id,
-      platform: 'TIKTOK',
-      content: dbMsg.content,
+      messageId,
+      conversationId,
+      platform,
+      content,
+      metadata: { isComment }
     });
   }
 }

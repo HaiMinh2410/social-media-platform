@@ -15,6 +15,7 @@ export async function processMessageReceived(job: Job<JobPayloadMap[JobType.MESS
   await pushJob(QueueName.AI_PROCESSING, JobType.GENERATE_REPLY, {
     messageId,
     conversationId,
+    metadata: job.data.metadata,
   });
 
   console.log(`✅ [PROCESSOR] MESSAGE_RECEIVED processed. Queued GENERATE_REPLY for msg: ${messageId}`);
