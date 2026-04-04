@@ -30,6 +30,7 @@ model PlatformAccount {
   platformUserName String         @map("platform_user_name")
   createdAt        DateTime       @default(now()) @map("created_at")
   metaTokens       MetaToken[]
+  tiktokTokens     TikTokToken[]
   conversations    Conversation[]
 
   botConfiguration BotConfiguration?
@@ -78,6 +79,30 @@ model MetaToken {
   updatedAt              DateTime        @default(now()) @updatedAt @map("updated_at")
 
   @@map("meta_tokens")
+}
+
+model TikTokToken {
+  id                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId             String          @map("account_id") @db.Uuid
+  platformAccount       PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accessToken           String          @map("access_token")
+  refreshToken          String?         @map("refresh_token")
+  openId                String          @map("open_id")
+  expiresAt             DateTime        @map("expires_at")
+  refreshTokenExpiresAt DateTime?       @map("refresh_token_expires_at")
+  updatedAt             DateTime        @default(now()) @updatedAt @map("updated_at")
+
+  @@map("tiktok_tokens")
+}
+
+model TikTokTokenRefresh {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tokenId   String   @map("token_id") @db.Uuid
+  status    String   @default("success") // success, failed
+  error     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("tiktok_token_refreshes")
 }
 
 model Conversation {

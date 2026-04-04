@@ -27,3 +27,24 @@ export function validateMetaSignature(body: string, signature: string): boolean 
     return false;
   }
 }
+
+/**
+ * Validates the X-TikTok-Signature header from TikTok Webhooks.
+ * @param body The raw request body as a string.
+ * @param signature The signature from the header.
+ */
+export function validateTikTokSignature(body: string, signature: string): boolean {
+  const expectedSignature = crypto
+    .createHmac('sha256', env.TIKTOK_CLIENT_SECRET)
+    .update(body)
+    .digest('hex');
+
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(expectedSignature, 'hex'),
+      Buffer.from(signature, 'hex')
+    );
+  } catch (e) {
+    return false;
+  }
+}
