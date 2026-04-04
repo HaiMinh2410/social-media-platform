@@ -25,7 +25,7 @@ export default function TestMediaPage() {
               Media Uploader
             </CardTitle>
             <CardDescription>
-              Tải ảnh hoặc video lên Supabase Storage bucket 'media'.
+              Tải ảnh hoặc video lên Supabase Storage bucket &apos;media&apos;.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-8">
@@ -52,6 +52,7 @@ export default function TestMediaPage() {
                 {uploadedUrl.match(/\.(mp4|webm|mov|quicktime)/i) ? (
                   <video src={uploadedUrl} controls className="w-full h-auto rounded-xl" />
                 ) : (
+                  /* eslint-disable-next-line @next/next/no-img-element */
                   <img src={uploadedUrl} alt="Uploaded" className="w-full h-auto rounded-xl object-contain max-h-[300px]" />
                 )}
               </div>

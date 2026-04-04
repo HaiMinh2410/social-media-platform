@@ -18,6 +18,22 @@ export function SuggestionPanel({ messageId, onUseSuggestion, onClose }: Suggest
   const [error, setError] = useState<string | null>(null);
   const [isRegenerating, startRegenerate] = useTransition();
 
+  const handleRegenerate = React.useCallback(() => {
+    startRegenerate(async () => {
+      setError(null);
+      const { data, error: genError } = await regenerateSuggestionsAction(messageId);
+      
+      if (genError) {
+        setError(genError);
+        setLoading(false);
+        return;
+      }
+
+      setSuggestions(data || []);
+      setLoading(false);
+    });
+  }, [messageId]);
+
   useEffect(() => {
     async function loadSuggestions() {
       setLoading(true);
@@ -41,23 +57,7 @@ export function SuggestionPanel({ messageId, onUseSuggestion, onClose }: Suggest
     }
 
     loadSuggestions();
-  }, [messageId]);
-
-  const handleRegenerate = () => {
-    startRegenerate(async () => {
-      setError(null);
-      const { data, error: genError } = await regenerateSuggestionsAction(messageId);
-      
-      if (genError) {
-        setError(genError);
-        setLoading(false);
-        return;
-      }
-
-      setSuggestions(data || []);
-      setLoading(false);
-    });
-  };
+  }, [messageId, handleRegenerate]);
 
   return (
     <div className="flex flex-col h-full bg-slate-50 border-l border-slate-200 w-[300px] lg:w-[350px] shrink-0 animate-in slide-in-from-right duration-300">
