@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { getConversationsByUserId, getAISuggestionsByMessageId, generateNewSuggestions, markConversationAsRead } from '@/application/inbox/inbox.service';
 import type { ConversationPreview, SendMessageResult, ConversationDetail } from '@/domain/types/inbox';
+import { IdSchema, MessageContentSchema } from '@/domain/validation/schemas';
 
 async function verifySession() {
   const supabase = createClient();
@@ -15,14 +16,10 @@ async function verifySession() {
 
 export async function getConversationsAction(): Promise<{ data: ConversationPreview[] | null; error: string | null }> {
   try {
-    const supabase = createClient();
-    const { data: authData, error: authError } = await supabase.auth.getUser();
+    const auth = await verifySession();
+    if (auth.error) return { data: null, error: auth.error };
 
-    if (authError || !authData.user) {
-      return { data: null, error: 'Unauthorized' };
-    }
-
-    return await getConversationsByUserId(authData.user.id);
+    return await getConversationsByUserId(auth.data!.id);
   } catch (error: any) {
     console.error('getConversationsAction error:', error);
     return { data: null, error: 'Internal Server Error' };
@@ -31,16 +28,14 @@ export async function getConversationsAction(): Promise<{ data: ConversationPrev
 
 export async function getMessagesAction(conversationId: string): Promise<{ data: ConversationDetail | null; error: string | null }> {
   try {
-    const supabase = createClient();
-    const { data: authData, error: authError } = await supabase.auth.getUser();
+    const parsedId = IdSchema.safeParse(conversationId);
+    if (!parsedId.success) return { data: null, error: 'Invalid conversation ID' };
 
-    if (authError || !authData.user) {
-      return { data: null, error: 'Unauthorized' };
-    }
+    const auth = await verifySession();
+    if (auth.error) return { data: null, error: auth.error };
 
-    // Dynamic import to avoid type leaking issues or keep simple
     const { getMessagesByConversationId } = await import('@/application/inbox/inbox.service');
-    return await getMessagesByConversationId(authData.user.id, conversationId);
+    return await getMessagesByConversationId(auth.data!.id, parsedId.data);
   } catch (error: any) {
     console.error('getMessagesAction error:', error);
     return { data: null, error: 'Internal Server Error' };
@@ -53,29 +48,20 @@ export async function sendMessageAction(
 ): Promise<{ data: SendMessageResult | null; error: string | null }> {
   try {
     // Input validation
-    if (!conversationId || typeof conversationId !== 'string') {
-      return { data: null, error: 'Invalid conversation ID' };
-    }
+    const parsedId = IdSchema.safeParse(conversationId);
+    if (!parsedId.success) return { data: null, error: 'Invalid conversation ID' };
 
-    const trimmedContent = content?.trim();
-    if (!trimmedContent || trimmedContent.length === 0) {
-      return { data: null, error: 'Message content is required' };
-    }
-
-    if (trimmedContent.length > 2000) {
-      return { data: null, error: 'Message exceeds maximum length of 2000 characters' };
+    const parsedContent = MessageContentSchema.safeParse(content);
+    if (!parsedContent.success) {
+      return { data: null, error: parsedContent.error.errors[0].message };
     }
 
     // Auth guard
-    const supabase = createClient();
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !authData.user) {
-      return { data: null, error: 'Unauthorized' };
-    }
+    const auth = await verifySession();
+    if (auth.error) return { data: null, error: auth.error };
 
     const { sendMessage } = await import('@/application/inbox/inbox.service');
-    return await sendMessage(authData.user.id, conversationId, trimmedContent);
+    return await sendMessage(auth.data!.id, parsedId.data, parsedContent.data);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Internal Server Error';
     console.error('sendMessageAction error:', message);
@@ -85,10 +71,13 @@ export async function sendMessageAction(
 
 export async function getAISuggestionsAction(messageId: string) {
   try {
+    const parsedId = IdSchema.safeParse(messageId);
+    if (!parsedId.success) return { data: null, error: 'Invalid message ID' };
+
     const auth = await verifySession();
     if (auth.error) return { data: null, error: auth.error };
 
-    return await getAISuggestionsByMessageId(messageId);
+    return await getAISuggestionsByMessageId(parsedId.data);
   } catch (error: any) {
     console.error('getAISuggestionsAction error:', error);
     return { data: null, error: 'Internal Server Error' };
@@ -97,23 +86,31 @@ export async function getAISuggestionsAction(messageId: string) {
 
 export async function regenerateSuggestionsAction(messageId: string) {
   try {
+    const parsedId = IdSchema.safeParse(messageId);
+    if (!parsedId.success) return { data: null, error: 'Invalid message ID' };
+
     const auth = await verifySession();
     if (auth.error) return { data: null, error: auth.error };
 
-    return await generateNewSuggestions(auth.data!.id, messageId);
+    return await generateNewSuggestions(auth.data!.id, parsedId.data);
   } catch (error: any) {
     console.error('regenerateSuggestionsAction error:', error);
     return { data: null, error: 'Internal Server Error' };
   }
 }
+
 export async function markAsReadAction(conversationId: string) {
   try {
+    const parsedId = IdSchema.safeParse(conversationId);
+    if (!parsedId.success) return { data: null, error: 'Invalid conversation ID' };
+
     const auth = await verifySession();
     if (auth.error) return { data: null, error: auth.error };
 
-    return await markConversationAsRead(auth.data!.id, conversationId);
+    return await markConversationAsRead(auth.data!.id, parsedId.data);
   } catch (error: any) {
     console.error('markAsReadAction error:', error);
     return { data: null, error: 'Internal Server Error' };
   }
 }
+

@@ -105,11 +105,13 @@ export async function getPostsByAccountAction(
 export async function cancelPostAction(
   postId: string
 ): Promise<{ data: PostDTO | null; error: string | null }> {
-  if (!postId || typeof postId !== 'string') {
+  const parsedId = z.string().uuid().safeParse(postId);
+  if (!parsedId.success) {
     return { data: null, error: 'Invalid post ID.' };
   }
 
-  const { data: post, error } = await PostService.cancelPost(postId);
+  const { data: post, error } = await PostService.cancelPost(parsedId.data);
+
 
   if (error || !post) {
     return { data: null, error: error ?? 'Failed to cancel post.' };

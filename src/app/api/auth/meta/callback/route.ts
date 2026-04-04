@@ -4,14 +4,20 @@ import { encryptToken } from '@/infrastructure/security/token-encryption';
 import { createClient } from '@/lib/supabase/server';
 import { env } from '@/infrastructure/config/env-registry';
 
+import { OAuthCallbackSchema } from '@/domain/validation/schemas';
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const code = searchParams.get('code');
-  const state = searchParams.get('state');
+  const params = Object.fromEntries(searchParams.entries());
+  
+  const parsed = OAuthCallbackSchema.safeParse(params);
 
-  if (!code) {
-    return NextResponse.redirect(new URL('/auth/error?error=missing_code', request.url));
+  if (!parsed.success) {
+    const errorMsg = parsed.error.errors.map(e => e.message).join(', ');
+    return NextResponse.redirect(new URL(`/auth/error?error=${encodeURIComponent(errorMsg)}`, request.url));
   }
+
+  const { code } = parsed.data;
 
   try {
     const supabase = await createClient();

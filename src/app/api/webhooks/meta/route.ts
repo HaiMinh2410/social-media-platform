@@ -1,32 +1,43 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { env } from '@/infrastructure/config/env-registry';
 import { validateMetaSignature } from '@/infrastructure/security/hmac-validator';
 import { metaWebhookHandler } from '@/infrastructure/external/meta/webhook-handler.service';
 
 /**
+ * Schemas
+ */
+
+const MetaVerificationSchema = z.object({
+  'hub.mode': z.literal('subscribe'),
+  'hub.verify_token': z.literal(env.META_WEBHOOK_VERIFY_TOKEN, {
+    errorMap: () => ({ message: 'Invalid verification token' }),
+  }),
+  'hub.challenge': z.string().min(1),
+});
+
+const MetaWebhookPayloadSchema = z.object({
+  object: z.enum(['page', 'instagram', 'whatsapp_business_account']),
+  entry: z.array(z.any()),
+});
+
+/**
  * Meta Webhook Endpoint
- * 
- * GET: Verification for initial setup.
- * POST: Real-time events from Messenger/Instagram.
  */
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  
-  const mode = searchParams.get('hub.mode');
-  const token = searchParams.get('hub.verify_token');
-  const challenge = searchParams.get('hub.challenge');
+  const params = Object.fromEntries(searchParams.entries());
 
-  if (mode && token) {
-    if (mode === 'subscribe' && token === env.META_WEBHOOK_VERIFY_TOKEN) {
-      console.log('✅ [META_WEBHOOK] Endpoint verified.');
-      return new Response(challenge, { status: 200 });
-    } else {
-      return new Response('Forbidden', { status: 403 });
-    }
+  const parsed = MetaVerificationSchema.safeParse(params);
+
+  if (!parsed.success) {
+    console.warn('⚠️ [META_WEBHOOK] Verification failed:', parsed.error.flatten().fieldErrors);
+    return new Response('Forbidden', { status: 403 });
   }
 
-  return new Response('Bad Request', { status: 400 });
+  console.log('✅ [META_WEBHOOK] Endpoint verified.');
+  return new Response(parsed.data['hub.challenge'], { status: 200 });
 }
 
 export async function POST(request: Request) {
@@ -47,9 +58,15 @@ export async function POST(request: Request) {
   try {
     const payload = JSON.parse(rawBody);
 
-    // 2. Handle payload asynchronously (though we await for safety/logs for now)
-    // In production, we'd push to Upstash Queue immediately.
-    await metaWebhookHandler.handlePayload(payload);
+    // 2. Validate Payload Structure
+    const parsedPayload = MetaWebhookPayloadSchema.safeParse(payload);
+    if (!parsedPayload.success) {
+        console.error('❌ [META_WEBHOOK] Invalid payload structure:', parsedPayload.error.format());
+        return new Response('Bad Request', { status: 400 });
+    }
+
+    // 3. Handle payload asynchronously
+    await metaWebhookHandler.handlePayload(parsedPayload.data);
 
     return new Response('EVENT_RECEIVED', { status: 200 });
   } catch (error: any) {
@@ -57,3 +74,4 @@ export async function POST(request: Request) {
     return new Response('Internal Server Error', { status: 500 });
   }
 }
+
