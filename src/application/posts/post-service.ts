@@ -22,7 +22,6 @@ export class PostService {
 
       // 2. Calculate delay for BullMQ
       const delay = data.scheduledAt.getTime() - Date.now();
-      // Ensure delay is at least 0 (immediate if past date)
       const finalDelay = Math.max(0, delay);
 
       // 3. Enqueue the publication job
@@ -31,25 +30,24 @@ export class PostService {
         JobType.PUBLISH_POST,
         {
           postId: post.id,
-          accountId: data.accountId
+          accountId: data.accountId,
         },
         { delay: finalDelay }
       );
 
       console.log(`📡 [POST_SERVICE] Post ${post.id} scheduled for ${data.scheduledAt.toISOString()}`);
-      
       return { data: post, error: null };
     } catch (error) {
       console.error("PostService.schedulePost error:", error);
-      return { 
-        data: null, 
-        error: error instanceof Error ? error.message : "Đã xảy ra lỗi khi lập lịch bài viết." 
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "Đã xảy ra lỗi khi lập lịch bài viết.",
       };
     }
   }
 
   /**
-   * Fetches scheduled posts for a specific account.
+   * Fetches all posts for a specific account, ordered by scheduledAt asc.
    */
   static async getScheduledPosts(accountId: string) {
     try {
@@ -60,6 +58,22 @@ export class PostService {
       return { data: posts, error: null };
     } catch (error) {
       return { data: null, error: "Không thể lấy danh sách bài viết." };
+    }
+  }
+
+  /**
+   * Cancels a scheduled post by setting status to 'draft'.
+   * The BullMQ job may still fire but the processor will skip non-scheduled posts.
+   */
+  static async cancelPost(postId: string) {
+    try {
+      const post = await db.post.update({
+        where: { id: postId, status: "scheduled" },
+        data: { status: "draft" },
+      });
+      return { data: post, error: null };
+    } catch (error) {
+      return { data: null, error: "Could not cancel post. It may have already been published." };
     }
   }
 }
