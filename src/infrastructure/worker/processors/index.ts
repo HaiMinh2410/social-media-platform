@@ -2,6 +2,7 @@ import { Job } from "bullmq";
 import { JobType } from "@/domain/types/queue";
 import { processMessageReceived } from "./message-received.processor";
 import { processGenerateReply } from "./generate-reply.processor";
+import { processPublishPost } from "./publish-post.processor";
 
 /**
  * Interface representing a map of job processors by their JobType.
@@ -44,5 +45,6 @@ export const processors: ProcessorMap = {
     });
 
     console.log(`✅ [PROCESSOR] REFRESH_META_TOKEN success for account: ${accountId}`);
-  }
+  },
+  [JobType.PUBLISH_POST]: processPublishPost,
 };

@@ -3,55 +3,94 @@ import { queueConnection } from "@/lib/redis";
 import { QueueName } from "@/domain/types/queue";
 import { processors } from "@/infrastructure/worker/processors";
 
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type WorkerConfig = {
+  queueName: QueueName;
+  concurrency: number;
+};
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+
+const WORKER_CONFIGS: WorkerConfig[] = [
+  { queueName: QueueName.AI_PROCESSING, concurrency: 5 },
+  { queueName: QueueName.POST_SCHEDULER, concurrency: 3 },
+];
+
+// ─── Core ─────────────────────────────────────────────────────────────────────
+
 /**
- * Worker entrypoint to initialize processors and start consuming jobs.
+ * Creates and starts a BullMQ Worker for a given queue.
+ * Routes incoming jobs to the correct processor via the processors registry.
  */
-export async function startWorker() {
-  console.log(`👷 [WORKER] Initializing worker for queue: "${QueueName.AI_PROCESSING}"...`);
+function createWorker(config: WorkerConfig): Worker {
+  const { queueName, concurrency } = config;
+
+  console.log(`👷 [WORKER] Initializing worker for queue: "${queueName}"...`);
 
   const worker = new Worker(
-    QueueName.AI_PROCESSING,
+    queueName,
     async (job: Job) => {
       const handler = processors[job.name as keyof typeof processors];
+
       if (!handler) {
-        console.warn(`⚠️ [WORKER] No handler registered for job type: ${job.name}`);
+        console.warn(`⚠️  [WORKER:${queueName}] No handler for job type: "${job.name}". Skipping.`);
         return;
       }
 
-      console.log(`⚡ [WORKER] Processing job: ${job.id} (${job.name})`);
-      try {
-        await handler(job);
-        console.log(`✅ [WORKER] Successfully processed job ${job.id}`);
-      } catch (error) {
-        console.error(`❌ [WORKER] Failed job ${job.id}:`, error);
-        throw error; // Let BullMQ handle retries
-      }
+      console.log(`⚡ [WORKER:${queueName}] Processing job ${job.id} (${job.name})`);
+      await handler(job);
+      console.log(`✅ [WORKER:${queueName}] Job ${job.id} (${job.name}) completed.`);
     },
     {
       connection: queueConnection,
-      concurrency: 5,
+      concurrency,
     }
   );
 
   worker.on("ready", () => {
-    console.log(`✅ [WORKER] Worker is ready and waiting for jobs on "${QueueName.AI_PROCESSING}"`);
+    console.log(`✅ [WORKER:${queueName}] Ready — listening for jobs.`);
   });
 
   worker.on("failed", (job, err) => {
-    console.error(`❌ [WORKER] Job ${job?.id} failed in "${QueueName.AI_PROCESSING}":`, err.message);
+    console.error(
+      `❌ [WORKER:${queueName}] Job ${job?.id} (${job?.name}) failed: ${err.message}`
+    );
   });
 
+  return worker;
+}
+
+// ─── Entrypoint ───────────────────────────────────────────────────────────────
+
+/**
+ * Starts all configured workers.
+ * Each worker listens on its configured queue concurrently.
+ */
+export async function startWorker(): Promise<void> {
+  const workers = WORKER_CONFIGS.map(createWorker);
+
+  console.log(`🚀 [WORKER] All ${workers.length} workers started.`);
+
   process.on("SIGINT", async () => {
-    console.log("👷 [WORKER] Shutting down gracefully...");
-    await worker.close();
+    console.log("\n👷 [WORKER] SIGINT received — shutting down gracefully...");
+    await Promise.all(workers.map((w) => w.close()));
+    console.log("✅ [WORKER] All workers shut down cleanly.");
+    process.exit(0);
+  });
+
+  process.on("SIGTERM", async () => {
+    console.log("\n👷 [WORKER] SIGTERM received — shutting down gracefully...");
+    await Promise.all(workers.map((w) => w.close()));
+    console.log("✅ [WORKER] All workers shut down cleanly.");
     process.exit(0);
   });
 }
 
-// Start worker directly if this file is run
+// Start worker directly if this file is the entry point
 if (require.main === module) {
   startWorker().catch((err) => {
-    console.error("❌ [WORKER] Fatal error on startup:", err);
+    console.error("❌ [WORKER] Fatal startup error:", err);
     process.exit(1);
   });
 }
