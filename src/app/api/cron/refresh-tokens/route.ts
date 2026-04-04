@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    console.log(`🕒 [CRON] Found ${tokensToRefresh.length} tokens requiring refresh.`);
+    console.log(`🕒 [CRON] Found ${tokensToRefresh.length} Meta tokens requiring refresh.`);
 
     for (const token of tokensToRefresh) {
       await pushJob(QueueName.AI_PROCESSING, JobType.REFRESH_META_TOKEN, {
@@ -40,9 +40,34 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // --- TIKTOK REFRESH ---
+    // TikTok access tokens expire every 24h. We refresh those expiring in the next 12h.
+    const tiktokExpiry = new Date();
+    tiktokExpiry.setHours(tiktokExpiry.getHours() + 12);
+
+    const tiktokToRefresh = await db.tikTokToken.findMany({
+      where: {
+        expiresAt: {
+          lte: tiktokExpiry,
+        },
+      },
+      select: {
+        accountId: true,
+      },
+    });
+
+    console.log(`🕒 [CRON] Found ${tiktokToRefresh.length} TikTok tokens requiring refresh.`);
+
+    for (const token of tiktokToRefresh) {
+      await pushJob(QueueName.AI_PROCESSING, JobType.REFRESH_TIKTOK_TOKEN, {
+        accountId: token.accountId,
+      });
+    }
+
     return NextResponse.json({
       success: true,
-      scheduled: tokensToRefresh.length,
+      metaScheduled: tokensToRefresh.length,
+      tiktokScheduled: tiktokToRefresh.length,
     });
   } catch (error: any) {
     console.error("❌ [CRON] Token refresh scheduler failed:", error);
