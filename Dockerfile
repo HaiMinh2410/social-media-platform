@@ -1,22 +1,19 @@
 # --- BASE BUILD ---
 FROM node:20-slim AS base
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
 WORKDIR /app
-COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile
+COPY package.json package-lock.json* ./
+RUN npm ci
 
 # --- PRISMA GENERATE (Separate stage to avoid issues) ---
 FROM base AS prisma-gen
 COPY prisma ./prisma
-RUN pnpm prisma generate
+RUN npx prisma generate
 
 # --- WEB BUILD ---
 FROM prisma-gen AS builder
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
-RUN pnpm build
+RUN npm run build
 
 # --- WEB RUNNER ---
 FROM node:20-slim AS web-runner
