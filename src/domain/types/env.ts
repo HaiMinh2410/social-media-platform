@@ -23,6 +23,12 @@ export const envSchema = z.object({
   META_APP_SECRET: z.string().min(1),
   META_WEBHOOK_VERIFY_TOKEN: z.string().min(1),
   META_TOKEN_ENCRYPTION_KEY: z.string().length(64), // 32 bytes hex
+
+  // TikTok (Phase 5)
+  TIKTOK_CLIENT_KEY: z.string().min(1),
+  TIKTOK_CLIENT_SECRET: z.string().min(1),
+  TIKTOK_TOKEN_ENCRYPTION_KEY: z.string().length(64),
+  TIKTOK_SANDBOX: z.string().optional().default("false"),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

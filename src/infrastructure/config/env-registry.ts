@@ -19,6 +19,10 @@ export function validateEnv(): EnvConfig {
     META_APP_SECRET: process.env.META_APP_SECRET,
     META_WEBHOOK_VERIFY_TOKEN: process.env.META_WEBHOOK_VERIFY_TOKEN,
     META_TOKEN_ENCRYPTION_KEY: process.env.META_TOKEN_ENCRYPTION_KEY,
+    TIKTOK_CLIENT_KEY: process.env.TIKTOK_CLIENT_KEY,
+    TIKTOK_CLIENT_SECRET: process.env.TIKTOK_CLIENT_SECRET,
+    TIKTOK_TOKEN_ENCRYPTION_KEY: process.env.TIKTOK_TOKEN_ENCRYPTION_KEY,
+    TIKTOK_SANDBOX: process.env.TIKTOK_SANDBOX,
   });
 
   if (!result.success) {

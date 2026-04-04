@@ -7,12 +7,11 @@ const TAG_LENGTH = 16;
 
 /**
  * Encrypts a string using AES-256-GCM.
- * The key is derived from META_TOKEN_ENCRYPTION_KEY (must be 32 bytes).
  */
-export function encryptToken(token: string): string {
-  const key = Buffer.from(env.META_TOKEN_ENCRYPTION_KEY, 'hex');
+export function encryptToken(token: string, hexKey: string = env.META_TOKEN_ENCRYPTION_KEY): string {
+  const key = Buffer.from(hexKey, 'hex');
   if (key.length !== 32) {
-    throw new Error('META_TOKEN_ENCRYPTION_KEY must be a 32-byte hex string');
+    throw new Error('Encryption key must be a 32-byte hex string');
   }
 
   const iv = crypto.randomBytes(IV_LENGTH);
@@ -28,8 +27,8 @@ export function encryptToken(token: string): string {
 /**
  * Decrypts a string encrypted with AES-256-GCM.
  */
-export function decryptToken(encryptedData: string): string {
-  const key = Buffer.from(env.META_TOKEN_ENCRYPTION_KEY, 'hex');
+export function decryptToken(encryptedData: string, hexKey: string = env.META_TOKEN_ENCRYPTION_KEY): string {
+  const key = Buffer.from(hexKey, 'hex');
   const [ivHex, encryptedHex, tagHex] = encryptedData.split(':');
 
   if (!ivHex || !encryptedHex || !tagHex) {
