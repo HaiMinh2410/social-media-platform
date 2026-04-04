@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
+    "worker": "bun src/infrastructure/worker/main.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

@@ -1,6 +1,6 @@
 import { Worker, type Job } from "bullmq";
 import * as Sentry from "@sentry/nextjs";
-import { queueConnection } from "@/lib/redis";
+import { queueConnection } from "@/lib/queue-connection";
 import { QueueName } from "@/domain/types/queue";
 import { processors } from "@/infrastructure/worker/processors";
 

@@ -9,7 +9,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   const displayTitle = title.charAt(0).toUpperCase() + title.slice(1);
 
   return (
-    <div className="sticky top-0 z-10 flex h-16 shrink-0 bg-white border-b border-slate-200">
+    <div className="sticky top-0 z-10 flex h-16 shrink-0 bg-white border-b border-slate-200" suppressHydrationWarning>
       <button
         type="button"
         className="border-r border-slate-200 px-4 text-slate-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 md:hidden"

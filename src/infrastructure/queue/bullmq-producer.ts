@@ -1,5 +1,5 @@
 import { Queue, JobsOptions } from "bullmq";
-import { queueConnection } from "@/lib/redis";
+import { queueConnection } from "@/lib/queue-connection";
 import { QueueName, JobType, type JobPayloadMap } from "@/domain/types/queue";
 
 const queues: Record<string, Queue> = {};
