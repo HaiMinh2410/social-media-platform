@@ -2,6 +2,7 @@ export enum QueueName {
   AI_PROCESSING = "ai-processing",
   TOKEN_REFRESH = "token-refresh",
   POST_SCHEDULER = "post-scheduler",
+  MAINTENANCE = "maintenance",
 }
 
 export enum JobType {
@@ -10,6 +11,7 @@ export enum JobType {
   REFRESH_META_TOKEN = "REFRESH_META_TOKEN",
   REFRESH_TIKTOK_TOKEN = "REFRESH_TIKTOK_TOKEN",
   PUBLISH_POST = "PUBLISH_POST",
+  DATABASE_BACKUP = "DATABASE_BACKUP",
 }
 
 export interface MessagePayload {
@@ -26,4 +28,5 @@ export interface JobPayloadMap {
   [JobType.REFRESH_META_TOKEN]: { accountId: string };
   [JobType.REFRESH_TIKTOK_TOKEN]: { accountId: string };
   [JobType.PUBLISH_POST]: { postId: string; accountId: string };
+  [JobType.DATABASE_BACKUP]: { timestamp: number };
 }

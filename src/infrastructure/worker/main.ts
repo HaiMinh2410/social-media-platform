@@ -30,7 +30,32 @@ type WorkerConfig = {
 const WORKER_CONFIGS: WorkerConfig[] = [
   { queueName: QueueName.AI_PROCESSING, concurrency: 5 },
   { queueName: QueueName.POST_SCHEDULER, concurrency: 3 },
+  { queueName: QueueName.MAINTENANCE, concurrency: 1 },
 ];
+
+// ─── Scheduling ─────────────────────────────────────────────────────────────
+
+async function scheduleMaintenanceJobs() {
+  const { pushJob } = await import("@/infrastructure/queue/bullmq-producer");
+  const { JobType } = await import("@/domain/types/queue");
+
+  try {
+    console.log("📅 [WORKER] Scheduling maintenance jobs...");
+    
+    // Add repeatable DB backup job (Daily at 2 AM)
+    await pushJob(QueueName.MAINTENANCE, JobType.DATABASE_BACKUP, 
+      { timestamp: Date.now() }, 
+      { 
+        jobId: "daily-db-backup",
+        repeat: { pattern: "0 2 * * *" }
+      }
+    );
+    
+    console.log("✅ [WORKER] Maintenance jobs scheduled.");
+  } catch (error) {
+    console.error("❌ [WORKER] Failed to schedule maintenance jobs:", error);
+  }
+}
 
 // ─── Core ─────────────────────────────────────────────────────────────────────
 
@@ -100,7 +125,9 @@ export async function startWorker(): Promise<void> {
   initializeSentry();
 
   const workers = WORKER_CONFIGS.map(createWorker);
-
+  
+  // Schedule system-wide maintenance jobs
+  await scheduleMaintenanceJobs();
 
   console.log(`🚀 [WORKER] All ${workers.length} workers started.`);
 

@@ -4,6 +4,7 @@ import { processMessageReceived } from "./message-received.processor";
 import { processGenerateReply } from "./generate-reply.processor";
 import { processPublishPost } from "./publish-post.processor";
 import { processRefreshTikTokToken } from "./refresh-tiktok-token.processor";
+import { databaseBackupProcessor } from "./database-backup.processor";
 
 /**
  * Interface representing a map of job processors by their JobType.
@@ -49,4 +50,5 @@ export const processors: ProcessorMap = {
   },
   [JobType.REFRESH_TIKTOK_TOKEN]: processRefreshTikTokToken,
   [JobType.PUBLISH_POST]: processPublishPost,
+  [JobType.DATABASE_BACKUP]: databaseBackupProcessor,
 };

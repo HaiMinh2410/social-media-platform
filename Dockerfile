@@ -28,6 +28,7 @@ CMD ["npm", "run", "start"]
 
 # --- WORKER RUNNER ---
 FROM node:20-slim AS worker-runner
+RUN apt-get update && apt-get install -y postgresql-client && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
