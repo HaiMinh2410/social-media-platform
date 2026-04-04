@@ -30,7 +30,10 @@ model PlatformAccount {
   platformUserName String         @map("platform_user_name")
   createdAt        DateTime       @default(now()) @map("created_at")
   metaTokens       MetaToken[]
-  tiktokTokens     TikTokToken[]
+  tiktokToken      TikTokToken?
+  tiktokTokenRefreshes TikTokTokenRefresh[]
+  tiktokToken      TikTokToken?
+  tiktokTokenRefreshes TikTokTokenRefresh[]
   conversations    Conversation[]
 
   botConfiguration BotConfiguration?
@@ -101,6 +104,29 @@ model TikTokTokenRefresh {
   status    String   @default("success") // success, failed
   error     String?
   createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("tiktok_token_refreshes")
+}
+
+model TikTokToken {
+  id                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId             String          @unique @map("account_id") @db.Uuid
+  platformAccount       PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  encryptedAccessToken String          @map("encrypted_access_token")
+  encryptedRefreshToken String?         @map("encrypted_refresh_token")
+  expiresAt             DateTime        @map("expires_at")
+  updatedAt             DateTime        @default(now()) @updatedAt @map("updated_at")
+
+  @@map("tiktok_tokens")
+}
+
+model TikTokTokenRefresh {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId       String          @map("account_id") @db.Uuid
+  platformAccount PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  refreshedAt     DateTime        @default(now()) @map("refreshed_at")
+  success         Boolean
+  errorMessage    String?         @map("error_message")
 
   @@map("tiktok_token_refreshes")
 }
