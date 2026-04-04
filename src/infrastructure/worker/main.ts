@@ -1,7 +1,22 @@
 import { Worker, type Job } from "bullmq";
+import * as Sentry from "@sentry/nextjs";
 import { queueConnection } from "@/lib/redis";
 import { QueueName } from "@/domain/types/queue";
 import { processors } from "@/infrastructure/worker/processors";
+
+// ─── Sentry Initiation ────────────────────────────────────────────────────────
+
+const initializeSentry = () => {
+    if (!process.env.NEXT_PUBLIC_SENTRY_DSN) return;
+
+    Sentry.init({
+      dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+      tracesSampleRate: 1.0,
+      debug: false,
+      environment: process.env.NODE_ENV || 'development',
+    });
+    console.log('✅ [SENTRY] Background Worker instrumentation active.');
+};
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -56,6 +71,20 @@ function createWorker(config: WorkerConfig): Worker {
     console.error(
       `❌ [WORKER:${queueName}] Job ${job?.id} (${job?.name}) failed: ${err.message}`
     );
+
+    // Report failure to Sentry with context
+    Sentry.captureException(err, {
+        extra: {
+            jobId: job?.id,
+            jobName: job?.name,
+            queueName: queueName,
+            payload: job?.data,
+        },
+        tags: {
+            queue: queueName,
+            job_type: job?.name,
+        }
+    });
   });
 
   return worker;
@@ -68,7 +97,10 @@ function createWorker(config: WorkerConfig): Worker {
  * Each worker listens on its configured queue concurrently.
  */
 export async function startWorker(): Promise<void> {
+  initializeSentry();
+
   const workers = WORKER_CONFIGS.map(createWorker);
+
 
   console.log(`🚀 [WORKER] All ${workers.length} workers started.`);
 
