@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { getConversationsByUserId, getAISuggestionsByMessageId, generateNewSuggestions, markConversationAsRead } from '@/application/inbox/inbox.service';
-import type { ConversationPreview, SendMessageResult } from '@/domain/types/inbox';
+import type { ConversationPreview, SendMessageResult, ConversationDetail } from '@/domain/types/inbox';
 
 async function verifySession() {
   const supabase = createClient();
@@ -29,7 +29,7 @@ export async function getConversationsAction(): Promise<{ data: ConversationPrev
   }
 }
 
-export async function getMessagesAction(conversationId: string): Promise<{ data: any[] | null; error: string | null }> {
+export async function getMessagesAction(conversationId: string): Promise<{ data: ConversationDetail | null; error: string | null }> {
   try {
     const supabase = createClient();
     const { data: authData, error: authError } = await supabase.auth.getUser();

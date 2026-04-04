@@ -12,7 +12,15 @@ export type ConversationPreview = {
     senderId: string;
     platformMessageId: string;
   } | null;
-  unreadCount?: number; // Currently not modeled precisely in schema, but good for future
+  unreadCount?: number;
+  lastUserMessageAt?: Date;
+};
+
+export type ConversationDetail = {
+  messages: MessageDTO[];
+  platform: string;
+  lastUserMessageAt: Date | null;
+  customerName?: string;
 };
 
 export type MessageDTO = {

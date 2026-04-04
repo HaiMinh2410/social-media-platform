@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import type { ConversationPreview, MessageDTO, SendMessageResult } from '@/domain/types/inbox';
+import type { ConversationPreview, MessageDTO, SendMessageResult, ConversationDetail } from '@/domain/types/inbox';
 import { decryptToken } from '@/infrastructure/security/token-encryption';
 import { sendMetaMessage } from '@/infrastructure/external/meta/meta-messaging.service';
 import { sendTikTokMessage } from '@/infrastructure/external/tiktok/tiktok-messaging.service';
@@ -60,19 +60,32 @@ export async function getConversationsByUserId(userId: string): Promise<{ data: 
       };
     });
 
-    // Fetch unread counts for each conversation
-    for (const conv of mapped) {
+    // Fetch unread counts and last user message for each conversation
+    await Promise.all(mapped.map(async (conv) => {
        const account = conversations.find(c => c.id === conv.id)?.platformAccount;
        if (account) {
-         conv.unreadCount = await db.message.count({
-           where: {
-             conversationId: conv.id,
-             isRead: false,
-             senderId: { not: account.platformUserId }
-           }
-         });
+         const [count, lastUserMsg] = await db.$transaction([
+           db.message.count({
+             where: {
+               conversationId: conv.id,
+               isRead: false,
+               senderId: { not: account.platformUserId }
+             }
+           }),
+           db.message.findFirst({
+             where: {
+               conversationId: conv.id,
+               senderId: { not: account.platformUserId }
+             },
+             orderBy: { createdAt: 'desc' },
+             select: { createdAt: true }
+           })
+         ]);
+         
+         conv.unreadCount = count;
+         conv.lastUserMessageAt = lastUserMsg?.createdAt;
        }
-    }
+    }));
 
 
     return { data: mapped, error: null };
@@ -83,7 +96,7 @@ export async function getConversationsByUserId(userId: string): Promise<{ data: 
 }
 
 
-export async function getMessagesByConversationId(userId: string, conversationId: string): Promise<{ data: MessageDTO[] | null; error: string | null }> {
+export async function getMessagesByConversationId(userId: string, conversationId: string): Promise<{ data: ConversationDetail | null; error: string | null }> {
   try {
     // Prevent unauthorized access by checking profileId
     const conversation = await db.conversation.findUnique({
@@ -100,7 +113,17 @@ export async function getMessagesByConversationId(userId: string, conversationId
       return { data: null, error: 'Conversation not found or unauthorized' };
     }
 
-    const mapped: MessageDTO[] = conversation.messages.map(m => ({
+    // Find the last user message in this specific conversation
+    const lastUserMsg = await db.message.findFirst({
+      where: {
+        conversationId: conversationId,
+        senderId: { not: conversation.platformAccount.platformUserId }
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true }
+    });
+
+    const mappedMessages: MessageDTO[] = conversation.messages.map(m => ({
       id: m.id,
       conversationId: m.conversationId,
       senderId: m.senderId,
@@ -112,7 +135,15 @@ export async function getMessagesByConversationId(userId: string, conversationId
     }));
 
 
-    return { data: mapped, error: null };
+    return { 
+      data: { 
+        messages: mappedMessages,
+        platform: conversation.platformAccount.platform,
+        lastUserMessageAt: lastUserMsg?.createdAt || null,
+        customerName: conversation.platformAccount.platformUserName
+      }, 
+      error: null 
+    };
   } catch (error: any) {
     console.error('Error fetching messages:', error);
     return { data: null, error: error.message || 'Failed to fetch messages' };

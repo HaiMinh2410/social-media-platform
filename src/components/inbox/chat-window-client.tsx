@@ -7,20 +7,39 @@ import { SuggestionPanel } from './suggestion-panel';
 import { useInboxRealtime } from '@/hooks/use-inbox-realtime';
 import { markAsReadAction } from '@/app/actions/inbox.action';
 import type { MessageDTO } from '@/domain/types/inbox';
-import { Sparkles, MoreVertical, Search, ArrowLeft } from 'lucide-react';
+import { Sparkles, MoreVertical, Search, ArrowLeft, Info } from 'lucide-react';
 
 type ChatWindowClientProps = {
   initialMessages: MessageDTO[];
   conversationId: string;
   customerName?: string;
+  platform?: string;
+  lastUserMessageAt?: Date | null;
 };
 
-export function ChatWindowClient({ initialMessages, conversationId, customerName = 'Customer' }: ChatWindowClientProps) {
+export function ChatWindowClient({ 
+  initialMessages, 
+  conversationId, 
+  customerName = 'Customer',
+  platform = 'META',
+  lastUserMessageAt = null
+}: ChatWindowClientProps) {
   const [messages, setMessages] = useState<MessageDTO[]>(initialMessages);
   const [replyValue, setReplyValue] = useState('');
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
   const [aiRefreshKey, setAiRefreshKey] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // TikTok Window Checks
+  const isTikTok = platform === 'TIKTOK';
+  const getWindowStatus = () => {
+    if (!isTikTok || !lastUserMessageAt) return { expired: false, hoursLeft: 48 };
+    const diffMs = Date.now() - new Date(lastUserMessageAt).getTime();
+    const hoursLeft = 48 - (diffMs / (1000 * 60 * 60));
+    return { expired: hoursLeft <= 0, hoursLeft };
+  };
+
+  const { expired, hoursLeft } = getWindowStatus();
 
   // Sync state when initialMessages change (new conversation selected)
   useEffect(() => {
@@ -77,7 +96,7 @@ export function ChatWindowClient({ initialMessages, conversationId, customerName
     <div className="flex flex-row h-full overflow-hidden bg-white">
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
-        {/* Header omitted for brevity */}
+        {/* Header */}
         <header className="h-16 border-b border-slate-200 px-4 md:px-6 flex items-center justify-between shrink-0 bg-white z-10 shadow-sm">
           <div className="flex items-center gap-3">
             <button className="md:hidden p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg">
@@ -88,7 +107,9 @@ export function ChatWindowClient({ initialMessages, conversationId, customerName
             </div>
             <div>
               <h2 className="font-semibold text-slate-800 text-sm leading-none mb-1">{customerName}</h2>
-              <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Messenger</span>
+              <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">
+                {platform}
+              </span>
             </div>
           </div>
 
@@ -98,17 +119,17 @@ export function ChatWindowClient({ initialMessages, conversationId, customerName
             </button>
             <button 
               onClick={() => setIsAiPanelOpen(!isAiPanelOpen)}
-              disabled={!canShowAi}
+              disabled={!canShowAi || expired}
               className={`
                 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all
-                ${!canShowAi 
+                ${(!canShowAi || expired)
                   ? 'text-slate-300 opacity-50 cursor-not-allowed' 
                   : isAiPanelOpen 
                     ? 'bg-blue-600 text-white shadow-md' 
                     : 'bg-blue-50 text-blue-600 hover:bg-blue-100 shadow-sm border border-blue-200'}
               `}
             >
-              <Sparkles className={`h-4 w-4 ${canShowAi && !isAiPanelOpen ? 'animate-pulse' : ''}`} />
+              <Sparkles className={`h-4 w-4 ${canShowAi && !isAiPanelOpen && !expired ? 'animate-pulse' : ''}`} />
               <span className="hidden sm:inline">AI Suggestions</span>
             </button>
             <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg">
@@ -116,6 +137,24 @@ export function ChatWindowClient({ initialMessages, conversationId, customerName
             </button>
           </div>
         </header>
+
+        {/* TikTok Window Warning Banner */}
+        {isTikTok && lastUserMessageAt && (
+          <div className={`px-4 py-2 text-xs font-medium border-b flex items-center gap-2 ${
+            expired 
+              ? 'bg-red-50 text-red-600 border-red-100' 
+              : hoursLeft < 6 
+                ? 'bg-amber-50 text-amber-600 border-amber-100'
+                : 'bg-slate-50 text-slate-500 border-slate-100'
+          }`}>
+            <Info className="h-3.5 w-3.5 shrink-0" />
+            {expired ? (
+              <span>TikTok 48-hour messaging window has expired. You can no longer reply until the customer sends a new message.</span>
+            ) : (
+              <span>TikTok messaging window: <strong>{Math.floor(hoursLeft)}h {Math.floor((hoursLeft % 1) * 60)}m</strong> remaining to reply.</span>
+            )}
+          </div>
+        )}
 
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50/30">
@@ -143,12 +182,13 @@ export function ChatWindowClient({ initialMessages, conversationId, customerName
             onMessageSent={handleMessageSent}
             value={replyValue}
             onValueChange={setReplyValue}
+            disabled={expired}
           />
         </div>
       </div>
 
       {/* AI Suggestion Panel (Collapsible) */}
-      {isAiPanelOpen && canShowAi && lastMessage && (
+      {isAiPanelOpen && canShowAi && lastMessage && !expired && (
         <SuggestionPanel 
           key={`ai-${lastMessage.id}-${aiRefreshKey}`}
           messageId={lastMessage.id}

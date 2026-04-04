@@ -59,6 +59,38 @@ export function ConversationItem({ conversation, isActive, onClick }: Props) {
         <p className="text-sm text-slate-500 line-clamp-2 leading-snug">
           {latestMessage?.content || 'Started a conversation'}
         </p>
+
+        {/* TikTok Window Badge */}
+        {platformAccount.platform === 'TIKTOK' && conversation.lastUserMessageAt && (
+          <div className="mt-2 flex items-center gap-1.5">
+            {(() => {
+              const diffMs = Date.now() - new Date(conversation.lastUserMessageAt).getTime();
+              const diffHours = 48 - (diffMs / (1000 * 60 * 60));
+              
+              if (diffHours <= 0) {
+                return (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-50 text-red-600 border border-red-100 uppercase tracking-tighter">
+                    Window Expired
+                  </span>
+                );
+              }
+              
+              if (diffHours <= 6) {
+                return (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-100 uppercase tracking-tighter animate-pulse">
+                    Expires in {Math.floor(diffHours)}h
+                  </span>
+                );
+              }
+
+              return (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-50 text-slate-400 border border-slate-200 uppercase tracking-tighter">
+                  {Math.floor(diffHours)}h left
+                </span>
+              );
+            })()}
+          </div>
+        )}
       </div>
 
       {/* Badges / Unread indicators can go here */}
