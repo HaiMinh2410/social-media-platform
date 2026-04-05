@@ -16,3 +16,17 @@ export interface MetaUserProfile {
   name: string;
   email?: string;
 }
+
+export interface WABAEntry {
+  id: string;
+  name: string;
+  verified_name?: string;
+  status?: string;
+}
+
+export interface WABAPhoneNumber {
+  id: string;
+  display_phone_number: string;
+  verified_name: string;
+  quality_rating: string;
+}

@@ -58,6 +58,19 @@ export class MetaAuthService {
   }
 
   /**
+   * Generates a WhatsApp Business Login URL.
+   */
+  static getWhatsAppLoginUrl(redirectUri: string, state: string): string {
+    const url = new URL(`https://www.facebook.com/${MetaAuthService.GRAPH_API_VERSION}/dialog/oauth`);
+    url.searchParams.append('client_id', env.META_APP_ID);
+    url.searchParams.append('redirect_uri', redirectUri);
+    url.searchParams.append('state', state);
+    url.searchParams.append('scope', 'whatsapp_business_management,whatsapp_business_messaging');
+    
+    return url.toString();
+  }
+
+  /**
    * Refreshes a Meta access token.
    */
   async refreshAccessToken(accessToken: string): Promise<MetaExchangeResponse> {

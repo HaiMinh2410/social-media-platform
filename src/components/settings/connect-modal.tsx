@@ -1,7 +1,9 @@
 'use client';
 
-import { X, Facebook, Instagram, MessageCircle, Music2, ArrowRight, ExternalLink } from "lucide-react";
+import { X, Facebook, Instagram, MessageCircle, Music2, ArrowRight, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { getWhatsAppAuthUrlAction } from "@/application/meta/whatsapp-auth.action";
 
 interface ConnectPlatformModalProps {
   isOpen: boolean;
@@ -9,7 +11,22 @@ interface ConnectPlatformModalProps {
 }
 
 export function ConnectPlatformModal({ isOpen, onClose }: ConnectPlatformModalProps) {
+  const [loading, setLoading] = useState<string | null>(null);
+
   if (!isOpen) return null;
+
+  const handleConnect = async (platformId: string) => {
+    if (platformId === 'whatsapp') {
+      setLoading('whatsapp');
+      try {
+        const url = await getWhatsAppAuthUrlAction();
+        window.location.href = url;
+      } catch (err) {
+        console.error('Failed to get WhatsApp Auth URL', err);
+        setLoading(null);
+      }
+    }
+  };
 
   const platforms = [
     { 
@@ -47,7 +64,7 @@ export function ConnectPlatformModal({ isOpen, onClose }: ConnectPlatformModalPr
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose}>
       <div 
         className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-xl overflow-hidden animate-in zoom-in-95 duration-300 border border-slate-200"
         onClick={(e) => e.stopPropagation()}
@@ -69,12 +86,13 @@ export function ConnectPlatformModal({ isOpen, onClose }: ConnectPlatformModalPr
           {platforms.map((p) => (
             <button
               key={p.id}
-              className="w-full flex items-center justify-between p-5 rounded-3xl border border-slate-100 bg-white hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all group"
-              onClick={() => {/* Trigger OAuth Flow */}}
+              disabled={!!loading}
+              className="w-full flex items-center justify-between p-5 rounded-3xl border border-slate-100 bg-white hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all group disabled:opacity-50 disabled:translate-y-0"
+              onClick={() => handleConnect(p.id)}
             >
               <div className="flex items-center gap-5 text-left">
                 <div className={`p-4 rounded-2xl ${p.bgColor} ${p.color}`}>
-                  <p.icon size={28} />
+                  {loading === p.id ? <Loader2 size={28} className="animate-spin" /> : <p.icon size={28} />}
                 </div>
                 <div>
                   <h4 className="font-bold text-slate-900">{p.name}</h4>
