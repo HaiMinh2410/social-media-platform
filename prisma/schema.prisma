@@ -17,21 +17,63 @@ model Profile {
   avatarUrl        String?           @map("avatar_url")
   updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at")
   platformAccounts PlatformAccount[]
+  workspaceMembers WorkspaceMember[]
 
   @@map("profiles")
+}
+
+model Workspace {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String
+  slug             String            @unique
+  settings         Json?             @default("{}")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at")
+  members          WorkspaceMember[]
+  platformAccounts PlatformAccount[]
+  invitations      Invitation[]
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  profileId   String    @map("profile_id") @db.Uuid
+  profile     Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  role        String    @default("agent") // admin, manager, agent, viewer
+  joinedAt    DateTime  @default(now()) @map("joined_at")
+
+  @@map("workspace_members")
+}
+
+model Invitation {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  email       String
+  role        String    @default("agent")
+  token       String    @unique
+  invitedBy   String    @map("invited_by") @db.Uuid
+  status      String    @default("pending") // pending, accepted, revoked, expired
+  createdAt   DateTime  @default(now()) @map("created_at")
+  expiresAt   DateTime  @map("expires_at")
+
+  @@map("invitations")
 }
 
 model PlatformAccount {
   id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   profileId        String         @map("profile_id") @db.Uuid
   profile          Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  workspaceId      String    @map("workspace_id") @db.Uuid
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   platform         String         @db.VarChar(10)
   platformUserId   String         @map("platform_user_id")
   platformUserName String         @map("platform_user_name")
   createdAt        DateTime       @default(now()) @map("created_at")
   metaTokens       MetaToken[]
-  tiktokToken      TikTokToken?
-  tiktokTokenRefreshes TikTokTokenRefresh[]
   tiktokToken      TikTokToken?
   tiktokTokenRefreshes TikTokTokenRefresh[]
   conversations    Conversation[]
@@ -82,30 +124,6 @@ model MetaToken {
   updatedAt              DateTime        @default(now()) @updatedAt @map("updated_at")
 
   @@map("meta_tokens")
-}
-
-model TikTokToken {
-  id                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  accountId             String          @map("account_id") @db.Uuid
-  platformAccount       PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  accessToken           String          @map("access_token")
-  refreshToken          String?         @map("refresh_token")
-  openId                String          @map("open_id")
-  expiresAt             DateTime        @map("expires_at")
-  refreshTokenExpiresAt DateTime?       @map("refresh_token_expires_at")
-  updatedAt             DateTime        @default(now()) @updatedAt @map("updated_at")
-
-  @@map("tiktok_tokens")
-}
-
-model TikTokTokenRefresh {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tokenId   String   @map("token_id") @db.Uuid
-  status    String   @default("success") // success, failed
-  error     String?
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@map("tiktok_token_refreshes")
 }
 
 model TikTokToken {
