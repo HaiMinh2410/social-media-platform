@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { fetchAvailableWABAPhoneNumbersAction, connectWhatsAppAccountAction } from "@/application/meta/whatsapp-auth.action";
+import { fetchAvailableWABAPhoneNumbersAction, connectWhatsAppAccountAction } from "@/application/meta/meta-auth.action";
 import { MessageCircle, CheckCircle2, ChevronRight, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 

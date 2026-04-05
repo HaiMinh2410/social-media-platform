@@ -17,6 +17,20 @@ export async function getWhatsAppAuthUrlAction() {
   return loginUrl;
 }
 
+export async function getMetaAuthUrlAction(platform: 'facebook' | 'instagram') {
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  const host = process.env.NEXT_PUBLIC_APP_URL || 'localhost:3000';
+  const redirectUri = `${protocol}://${host}/api/auth/meta/callback`;
+  
+  // Scopes are dependent on platform type
+  const scopes = platform === 'facebook' 
+    ? ['pages_manage_metadata', 'pages_show_list', 'pages_messaging', 'public_profile']
+    : ['instagram_basic', 'instagram_manage_messages', 'pages_show_list', 'pages_manage_metadata', 'public_profile'];
+
+  const loginUrl = MetaAuthService.getLoginUrl(redirectUri, `meta-${platform}-state`, scopes);
+  return loginUrl;
+}
+
 export async function fetchAvailableWABAPhoneNumbersAction(encryptedToken: string): Promise<{ data: any[] | null; error: string | null }> {
   try {
     const accessToken = decryptToken(encryptedToken);

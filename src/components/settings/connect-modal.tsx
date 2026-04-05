@@ -3,7 +3,7 @@
 import { X, Facebook, Instagram, MessageCircle, Music2, ArrowRight, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { getWhatsAppAuthUrlAction } from "@/application/meta/whatsapp-auth.action";
+import { getWhatsAppAuthUrlAction, getMetaAuthUrlAction } from "@/application/meta/meta-auth.action";
 
 interface ConnectPlatformModalProps {
   isOpen: boolean;
@@ -16,15 +16,20 @@ export function ConnectPlatformModal({ isOpen, onClose }: ConnectPlatformModalPr
   if (!isOpen) return null;
 
   const handleConnect = async (platformId: string) => {
-    if (platformId === 'whatsapp') {
-      setLoading('whatsapp');
-      try {
+    setLoading(platformId);
+    try {
+      if (platformId === 'whatsapp') {
         const url = await getWhatsAppAuthUrlAction();
         window.location.href = url;
-      } catch (err) {
-        console.error('Failed to get WhatsApp Auth URL', err);
-        setLoading(null);
+      } else if (platformId === 'facebook' || platformId === 'instagram') {
+        const url = await getMetaAuthUrlAction();
+        window.location.href = url;
+      } else if (platformId === 'tiktok') {
+        window.location.href = '/api/auth/tiktok/connect';
       }
+    } catch (err) {
+      console.error(`Failed to get connection URL for ${platformId}`, err);
+      setLoading(null);
     }
   };
 

@@ -47,12 +47,12 @@ export class MetaAuthService {
   /**
    * Generates a Meta Login URL.
    */
-  static getLoginUrl(redirectUri: string, state: string): string {
+  static getLoginUrl(redirectUri: string, state: string, scopes: string[]): string {
     const url = new URL(`https://www.facebook.com/${MetaAuthService.GRAPH_API_VERSION}/dialog/oauth`);
     url.searchParams.append('client_id', env.META_APP_ID);
     url.searchParams.append('redirect_uri', redirectUri);
     url.searchParams.append('state', state);
-    url.searchParams.append('scope', 'instagram_basic,instagram_manage_messages,pages_manage_metadata,pages_show_list,pages_messaging');
+    url.searchParams.append('scope', scopes.join(','));
     
     return url.toString();
   }

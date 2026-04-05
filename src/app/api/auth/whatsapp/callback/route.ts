@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
-       return NextResponse.redirect(new URL('/auth/login', request.url));
+       return NextResponse.redirect(new URL('/login', request.url));
     }
 
     const protocol = request.headers.get('x-forwarded-proto') || 'http';
