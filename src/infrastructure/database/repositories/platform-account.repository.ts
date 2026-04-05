@@ -11,11 +11,12 @@ export async function getPlatformAccountsByWorkspace(workspaceId: string): Promi
   try {
     const supabase = createClient();
     
-    // Fetch accounts with their tokens
+    // Fetch accounts with their tokens, excluding disconnected ones
     const { data, error } = await supabase
       .from('platform_accounts')
       .select('*, meta_tokens(*), tiktok_tokens(*)')
-      .eq('workspace_id', workspaceId);
+      .eq('workspace_id', workspaceId)
+      .is('disconnected_at', null);
 
     if (error) return { data: null, error: error.message };
 
@@ -47,5 +48,19 @@ export async function getPlatformAccountsByWorkspace(workspaceId: string): Promi
     return { data: accountsWithStatus, error: null };
   } catch (err: any) {
     return { data: null, error: err.message || 'Unknown error' };
+  }
+}
+
+export async function disconnectAccount(accountId: string): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const supabase = createClient();
+    const { error } = await (supabase.from('platform_accounts') as any)
+      .update({ disconnected_at: new Date().toISOString() })
+      .eq('id', accountId);
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, error: null };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Unknown error' };
   }
 }

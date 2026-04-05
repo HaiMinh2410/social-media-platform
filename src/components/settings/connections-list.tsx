@@ -6,6 +6,8 @@ import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ConnectPlatformModal } from "./connect-modal";
+import { disconnectPlatformAccountAction } from "@/application/auth/platform-connection.action";
+import { useRouter } from "next/navigation";
 
 interface ConnectionsListProps {
   accounts: PlatformAccountWithStatus[];
@@ -13,6 +15,22 @@ interface ConnectionsListProps {
 
 export function ConnectionsList({ accounts }: ConnectionsListProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loadingAccountId, setLoadingAccountId] = useState<string | null>(null);
+  const router = useRouter();
+
+  const handleDisconnect = async (accountId: string) => {
+    if (!confirm('Are you sure you want to disconnect this account? All history will be hidden but preserved.')) return;
+    
+    setLoadingAccountId(accountId);
+    const result = await disconnectPlatformAccountAction(accountId);
+    
+    if (result.error) {
+      alert(result.error);
+    }
+    
+    setLoadingAccountId(null);
+    router.refresh();
+  };
   const platforms = [
     { id: 'facebook', name: 'Facebook Page', icon: Facebook, color: 'text-blue-600', bgColor: 'bg-blue-50' },
     { id: 'instagram', name: 'Instagram Business', icon: Instagram, color: 'text-pink-600', bgColor: 'bg-pink-50' },
@@ -90,8 +108,18 @@ export function ConnectionsList({ accounts }: ConnectionsListProps) {
                           Reconnect
                         </Button>
                       )}
-                      <Button size="sm" variant="ghost" className="rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50">
-                        <Trash2 size={16} />
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => handleDisconnect(account.id)}
+                        disabled={!!loadingAccountId}
+                      >
+                        {loadingAccountId === account.id ? (
+                          <RefreshCw size={14} className="animate-spin text-red-500" />
+                        ) : (
+                          <Trash2 size={16} />
+                        )}
                       </Button>
                     </div>
                   </div>
