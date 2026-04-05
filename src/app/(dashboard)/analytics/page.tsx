@@ -20,7 +20,7 @@ export default async function AnalyticsPage() {
           <AlertCircle className="h-12 w-12 text-blue-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">No Accounts Connected</h2>
           <p className="text-slate-400 mb-6">Connect your Facebook or Instagram account to see real-time analytics and performance metrics.</p>
-          <a href="/settings" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors inline-block">
+          <a href="/settings/connections" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors inline-block">
             Connect Account
           </a>
         </div>

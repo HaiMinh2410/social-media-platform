@@ -14,13 +14,10 @@ export const metadata = {
 export default async function ConnectionsPage() {
   const { data: workspaces, error: workspaceError } = await getMyWorkspaces();
 
-  if (workspaceError || !workspaces || workspaces.length === 0) {
-    redirect('/settings');
-  }
-
-  // Use the first workspace as default for now
-  const workspace = workspaces[0];
-  const { data: accounts, error: accountsError } = await getPlatformAccountsByWorkspace(workspace.id);
+  const workspace = workspaces?.[0];
+  const { data: accounts, error: accountsError } = workspace 
+    ? await getPlatformAccountsByWorkspace(workspace.id)
+    : { data: [], error: null };
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">

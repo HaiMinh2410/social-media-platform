@@ -1,5 +1,5 @@
 import { getMyWorkspaces } from "@/infrastructure/database/repositories/workspace.repository";
-import { User, Building2, Users, Share2, Bot, Shield, ArrowRight } from "lucide-react";
+import { User, Building2, Users, Share2, Bot, Shield, ArrowRight, AlertCircle } from "lucide-react";
 import Link from "next/link";
 
 export const metadata = {
@@ -116,9 +116,32 @@ export default async function SettingsPage() {
 
       </div>
 
+
+      {/* Empty State / No Workspace */}
+      {!error && (!workspaces || workspaces.length === 0) && (
+        <div className="mt-8 p-12 bg-white rounded-[3rem] border-2 border-dashed border-slate-100 text-center flex flex-col items-center animate-in fade-in zoom-in-95 duration-500">
+           <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-6">
+             <Building2 size={32} />
+           </div>
+           <h3 className="text-2xl font-black text-slate-900 mb-2">Setup Your First Workspace</h3>
+           <p className="text-slate-500 max-w-md mx-auto mb-8">
+             You haven&apos;t joined any workspaces yet. Create one now to start connecting your social accounts and automating your inbox.
+           </p>
+           <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-blue-200 hover:-translate-y-1 transition-all active:scale-95">
+             Create My Workspace
+           </button>
+        </div>
+      )}
+
       {error && (
-        <div className="mt-8 p-4 bg-red-50 border border-red-100 text-red-700 rounded-2xl text-sm">
-          Warning: There was an error fetching your workspace context. Some actions may be limited.
+        <div className="mt-8 p-6 bg-red-50 border border-red-100 text-red-700 rounded-[2rem] text-sm flex items-center gap-4">
+          <div className="p-2 bg-red-100 rounded-xl">
+             <AlertCircle size={20} />
+          </div>
+          <div>
+            <p className="font-bold">Error Fetching Workspace Data</p>
+            <p className="opacity-80">Details: {error}</p>
+          </div>
         </div>
       )}
     </div>
