@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { Workspace, WorkspaceMember, WorkspaceMemberWithProfile, Invitation, WorkspaceRole } from '@/domain/types/workspace';
+import { Workspace, WorkspaceMemberWithProfile, Invitation, WorkspaceRole } from '@/domain/types/workspace';
 import { Database } from '@/domain/types/database.types';
 
 export async function getMyWorkspaces(): Promise<{ data: (Workspace & { role: WorkspaceRole })[] | null; error: string | null }> {
@@ -61,9 +61,10 @@ export async function getWorkspaceMembers(id: string): Promise<{ data: Workspace
 export async function updateMemberRole(workspaceId: string, profileId: string, role: WorkspaceRole): Promise<{ error: string | null }> {
   try {
     const supabase = createClient();
+    // Using any cast on the payload to bypass strict type check for custom unions
     const { error } = await supabase
       .from('workspace_members')
-      .update({ role })
+      .update({ role } as any)
       .eq('workspace_id', workspaceId)
       .eq('profile_id', profileId);
 
@@ -104,39 +105,84 @@ export async function getInvitations(workspaceId: string): Promise<{ data: Invit
   }
 }
 
-export async function createInvitation(invitation: Omit<Invitation, 'id' | 'created_at' | 'status'>): Promise<{ data: Invitation | null; error: string | null }> {
+export async function inviteMember(workspaceId: string, email: string, role: WorkspaceRole, invitedBy: string): Promise<{ error: string | null }> {
+  try {
+    const supabase = createClient();
+    const token = crypto.randomUUID();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
+
+    const { error } = await supabase
+      .from('invitations')
+      .insert({
+        workspace_id: workspaceId,
+        email,
+        role,
+        token,
+        invited_by: invitedBy,
+        expires_at: expiresAt.toISOString(),
+        status: 'pending'
+      } as any);
+
+    return { error: error?.message || null };
+  } catch (err: any) {
+    return { error: err.message || 'Unknown error' };
+  }
+}
+
+export async function revokeInvitation(invitationId: string): Promise<{ error: string | null }> {
+  try {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('invitations')
+      .delete()
+      .eq('id', invitationId);
+
+    return { error: error?.message || null };
+  } catch (err: any) {
+    return { error: err.message || 'Unknown error' };
+  }
+}
+
+export async function getInvitationByToken(token: string): Promise<{ data: (Invitation & { workspaces: { name: string } }) | null; error: string | null }> {
   try {
     const supabase = createClient();
     const { data, error } = await supabase
       .from('invitations')
-      .insert({
-        workspace_id: invitation.workspace_id,
-        email: invitation.email,
-        role: invitation.role,
-        token: invitation.token,
-        invited_by: invitation.invited_by,
-        expires_at: invitation.expires_at,
-        status: 'pending'
-      } as Database['public']['Tables']['invitations']['Insert'])
-      .select()
+      .select('*, workspaces(name)')
+      .eq('token', token)
+      .eq('status', 'pending')
       .single();
 
     if (error) return { data: null, error: error.message };
-    return { data: data as Invitation, error: null };
+    return { data: data as any, error: null };
   } catch (err: any) {
     return { data: null, error: err.message || 'Unknown error' };
   }
 }
 
-export async function revokeInvitation(id: string): Promise<{ error: string | null }> {
+export async function acceptInvitation(invitationId: string, workspaceId: string, profileId: string, role: WorkspaceRole): Promise<{ error: string | null }> {
   try {
     const supabase = createClient();
-    const { error } = await supabase
+    
+    // 1. Mark invitation as accepted
+    const { error: inviteError } = await supabase
       .from('invitations')
-      .update({ status: 'revoked' })
-      .eq('id', id);
+      .update({ status: 'accepted' } as any)
+      .eq('id', invitationId);
 
-    return { error: error?.message || null };
+    if (inviteError) return { error: inviteError.message };
+
+    // 2. Add to workspace_members
+    const { error: memberError } = await supabase
+      .from('workspace_members')
+      .insert({
+        workspace_id: workspaceId,
+        profile_id: profileId,
+        role
+      } as any);
+
+    return { error: memberError?.message || null };
   } catch (err: any) {
     return { error: err.message || 'Unknown error' };
   }

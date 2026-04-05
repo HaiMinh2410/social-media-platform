@@ -5,6 +5,8 @@ import * as workspaceService from '@/application/workspace/workspace.service';
 import { WorkspaceRole } from '@/domain/types/workspace';
 import { z } from 'zod';
 
+import { createClient } from '@/lib/supabase/server';
+
 const InviteSchema = z.object({
   workspaceId: z.string().uuid(),
   email: z.string().email(),
@@ -47,5 +49,34 @@ export async function removeMemberAction(workspaceId: string, profileId: string)
 export async function revokeInvitationAction(invitationId: string) {
   const { error } = await workspaceService.revokeInvitation(invitationId);
   if (!error) revalidatePath('/settings/members');
+  return { error };
+}
+
+export async function acceptInvitationAction(token: string) {
+  const { data: invitation, error: fetchError } = await workspaceService.getInvitationByToken(token);
+  
+  if (fetchError || !invitation) {
+    return { error: 'Lời mời không hợp lệ hoặc đã hết hạn.' };
+  }
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: 'Vui lòng đăng nhập để chấp nhận lời mời.' };
+  }
+
+  const { error } = await workspaceService.acceptInvitation(
+    invitation.id,
+    invitation.workspace_id,
+    user.id,
+    invitation.role as WorkspaceRole
+  );
+
+  if (!error) {
+    revalidatePath('/settings/members');
+    return { success: true };
+  }
+
   return { error };
 }

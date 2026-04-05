@@ -66,3 +66,11 @@ export async function removeMember(workspaceId: string, profileId: string) {
 export async function revokeInvitation(invitationId: string) {
   return workspaceRepo.revokeInvitation(invitationId);
 }
+
+export async function getInvitationByToken(token: string) {
+  return workspaceRepo.getInvitationByToken(token);
+}
+
+export async function acceptInvitation(invitationId: string, workspaceId: string, profileId: string, role: WorkspaceRole) {
+  return workspaceRepo.acceptInvitation(invitationId, workspaceId, profileId, role);
+}
