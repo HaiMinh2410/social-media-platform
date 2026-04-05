@@ -10,6 +10,7 @@ export interface Profile {
 export interface PlatformAccount {
   id: string;
   profile_id: string;
+  workspace_id: string;
   platform: Platform;
   platform_user_id: string;
   platform_user_name: string;

@@ -278,6 +278,7 @@ export type Database = {
           platform_user_id: string
           platform_user_name: string
           profile_id: string
+          workspace_id: string
         }
         Insert: {
           created_at?: string
@@ -286,6 +287,7 @@ export type Database = {
           platform_user_id: string
           platform_user_name: string
           profile_id: string
+          workspace_id: string
         }
         Update: {
           created_at?: string
@@ -294,6 +296,7 @@ export type Database = {
           platform_user_id?: string
           platform_user_name?: string
           profile_id?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -301,6 +304,13 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_accounts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
